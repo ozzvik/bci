@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d1210">
+<title>חדר גידול · BCI</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <a class="icon-btn" href="index.html" aria-label="לדשבורד" id="back"></a>
+  <div class="t"><h1 id="title">חדר גידול</h1><div class="sub" id="sub">טוען…</div></div>
+  <button class="icon-btn" id="refresh" aria-label="רענון"></button>
+</header>
+
+<main class="wrap grid">
+  <section class="grid two">
+    <div>
+      <div class="photo" id="photo"><div class="empty">טוען תמונה…</div></div>
+      <div class="strip" id="strip"></div>
+    </div>
+    <div class="grid">
+      <div class="card">
+        <h2><span class="dot" id="airDot"></span>אוויר ליד הצמח<span class="r" id="airAt"></span></h2>
+        <div class="tiles" id="airTiles"></div>
+      </div>
+      <div class="card">
+        <h2>משקל וייבוש<span class="r" id="wAt"></span></h2>
+        <div class="tiles" id="wTiles"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>משקל וייבוש לאורך זמן
+      <span class="r"><span class="seg" id="range"><button data-d="1">24 ש׳</button><button data-d="3" class="on">3 ימים</button><button data-d="7">שבוע</button><button data-d="14">14 ימים</button></span></span>
+    </h2>
+    <div class="legend"><span><i style="background:var(--green)"></i>משקל</span><span><i class="dash" style="color:var(--muted)"></i>משקל מלא</span><span><i class="dash" style="color:var(--amber)"></i>סף השקיה</span><span><i style="background:var(--blue);height:8px;width:8px;border-radius:4px"></i>השקיה</span><span><i style="background:var(--night);height:10px"></i>לילה</span></div>
+    <div class="chart" id="wChart"></div>
+    <h2 style="margin-top:14px">קצב ייבוש <span class="muted small">(גרם לשעה)</span></h2>
+    <div class="chart" id="sChart"></div>
+  </section>
+
+  <section class="card" id="airCard">
+    <h2>טמפרטורה, לחות ו-VPD</h2>
+    <div class="legend"><span><i style="background:var(--amber)"></i>טמפרטורה (°C)</span><span><i style="background:var(--blue)"></i>לחות (%)</span><span><i style="background:var(--green)"></i>VPD (kPa)</span><span><i style="background:color-mix(in srgb,var(--green) 15%,transparent);height:10px"></i>טווח VPD טוב 0.8–1.5</span></div>
+    <div class="chart" id="aChart"></div>
+    <div class="chart" id="vChart" style="margin-top:8px"></div>
+  </section>
+
+  <section class="card">
+    <h2>לפי יום</h2>
+    <div class="scroll"><table><thead><tr><th>תאריך</th><th class="n">יום</th><th class="n">השקיות</th><th class="n">מים שנכנסו</th><th class="n">ירידה</th><th class="n">ייבוש מקס׳</th><th class="n">VPD ממוצע</th></tr></thead><tbody id="days"></tbody></table></div>
+  </section>
+  <div class="msg" id="msg"></div>
+  <div class="foot">BCI · חדר גידול · <a href="#" id="admin" class="muted">הגדרות מחזור ויישור מצלמות באדמין</a></div>
+</main>
+
+<script src="app.js"></script>
+<script>
+$('back').innerHTML = ICON.back; $('refresh').innerHTML = ICON.refresh;
+let G = { cycle: store.get('cycle') || {}, range: +(store.get('range') || 3), grow: null, photos: null, plant: null, pairs: [], frames: {} };
+const adminUrl = store.get('adminUrl'); if (adminUrl) $('admin').href = adminUrl; else $('admin').style.display = 'none';
+
+function render() {
+  const g = G.grow; if (!g) return;
+  const c = G.cycle = g.cycle || {}, P = G.plant = plantNow(g.points || [], c), d = cycleDay(c, Date.now());
+  $('title').textContent = (c.name || 'חדר גידול') + (d ? ' · יום ' + d : '');
+  // air
+  const a = P.airNow, vs = a ? vpdState(a.vpd) : '';
+  $('airDot').className = 'dot ' + vs; $('airAt').textContent = a ? ago(a.t) : '';
+  $('airTiles').innerHTML = a ? [
+    tile('VPD', fmt(a.vpd, 2), 'kPa', vs === 'good' ? 'בטווח הטוב' : a.vpd < 0.8 ? 'לח מדי' : 'יבש מדי', vs + ' big'),
+    tile('טמפרטורה', fmt(a.temp, 1), '°C', minmax(P.air, 'temp', 1, '°')),
+    tile('לחות', fmt(a.rh, 0), '%', minmax(P.air, 'rh', 0, '%')),
+  ].join('') : '<div class="muted small">אין עדיין קריאות מחיישן האוויר</div>';
+  // weight
+  if (P.w != null) {
+    const dbc = P.db >= P.lim ? 'bad' : P.db >= P.lim * 0.8 ? 'warn' : '';
+    const pct = Math.max(0, Math.min(100, (P.db || 0) / P.lim * 100));
+    const eta = P.eta == null ? '—' : P.eta === 0 ? 'עכשיו' : P.eta < 48 ? hm(P.t + P.eta * 3600000) : '> יומיים';
+    $('wAt').textContent = ago(P.t);
+    $('wTiles').innerHTML = [
+      tile('ייבוש (דרייבק)', fmt(P.db, 1), '%', 'סף השקיה ' + P.lim + '%', dbc + ' big', '<div class="bar ' + dbc + '"><i style="width:' + pct + '%"></i></div>'),
+      tile('משקל', fmt(P.w), 'g', 'מלא <span class="num">' + fmt(P.full) + ' g</span>'),
+      tile('קצב ייבוש', fmt(P.speed), 'g/h', '3 שעות אחרונות'),
+      tile('השקיה הבאה', eta, '', P.eta > 0 && P.eta < 48 ? 'בעוד ' + (P.eta < 1 ? Math.round(P.eta * 60) + ' דק׳' : fmt(P.eta, 1) + ' שע׳') : P.eta === 0 ? 'הגיע לסף' : ''),
+      tile('השקיה אחרונה', P.lastIrr ? hm(P.lastIrr.t) : '—', '', P.lastIrr ? ago(P.lastIrr.t) + ' · <span class="num">+' + fmt(P.lastIrr.added) + ' g</span>' : 'עוד לא זוהתה'),
+      tile('היום', fmt(P.todayLoss), 'g', P.todayIrr + ' השקיות · ירידה מאז חצות'),
+    ].join('');
+  } else $('wTiles').innerHTML = '<div class="muted small">אין עדיין קריאות מהמשקל</div>';
+  $('sub').textContent = 'עודכן ' + hm(Date.parse(g.now || Date.now())) + (c.start ? ' · התחיל ' + dm(c.start + 'T00:00') : '');
+  charts(); days();
+}
+function minmax(arr, k, d, u) { const d0 = new Date(); d0.setHours(0, 0, 0, 0); const v = arr.filter((p) => p.t >= d0).map((p) => p[k]); return v.length ? 'היום <span class="num">' + fmt(Math.min(...v), d) + '–' + fmt(Math.max(...v), d) + u + '</span>' : ''; }
+
+function charts() {
+  const P = G.plant; if (!P) return;
+  const t1 = Date.now(), t0 = t1 - G.range * DAY, A = P.A, lim = P.lim;
+  const pts = A.pts.filter((p) => p.t >= t0);
+  if (pts.length) {
+    const fulls = pts.map((p) => [p.t, p.full]), lims = pts.map((p) => [p.t, p.full ? p.full * (1 - lim / 100) : null]);
+    const vals = pts.map((p) => p.w).concat(lims.map((x) => x[1]).filter((v) => v != null), fulls.map((x) => x[1]));
+    let mn = Math.min(...vals), mx = Math.max(...vals); const pad = Math.max(20, (mx - mn) * .08); mn -= pad; mx += pad;
+    const fn = pts[pts.length - 1].full || mx;
+    chart($('wChart'), { t0, t1, height: 250, tip: true, yl: { min: mn, max: mx, fmt: (v) => fmt(v / 1000, 2) + 'k' }, yr: { min: (1 - mn / fn) * 100, max: (1 - mx / fn) * 100, fmt: (v) => v < -.01 ? '' : fmt(v) + '%' },
+      series: [{ pts: lims, color: 'var(--amber)', dash: '5 4', step: true, width: 1.3 }, { pts: fulls, color: 'var(--muted)', dash: '2 4', step: true, width: 1.2 }, { pts: pts.map((p) => [p.t, p.w]), color: 'var(--green)', width: 2.2, fill: true, gap: 40 * 60000 }],
+      markers: A.ev.filter((e) => e.t >= t0).map((e) => ({ t: e.t, color: 'var(--blue)' })),
+      onHover: (t) => { let b = pts[0]; for (const p of pts) if (Math.abs(p.t - t) < Math.abs(b.t - t)) b = p; return { t: b.t, v: b.w, html: '<b>' + dm(b.t) + ' ' + hm(b.t) + '</b><br><span class="num">' + fmt(b.w) + ' g</span> · ייבוש <span class="num">' + fmt(b.db, 1) + '%</span>' }; },
+      onClick: (t) => showAt(t) });
+    const hours = [], h0 = new Date(t0); h0.setMinutes(0, 0, 0);
+    for (let t = h0.getTime(); t < t1; t += 3600000) { const q = quietPts(A, t, t + 3600000), s = q.length >= 6 ? slopeGH(q) : null; hours.push([t, s == null ? null : -s]); }
+    const sv = hours.map((h) => h[1]).filter((v) => v != null);
+    chart($('sChart'), { t0, t1, height: 120, yl: { min: Math.min(0, ...sv), max: Math.max(10, ...sv) * 1.1 }, series: [{ pts: hours, color: 'var(--green)', bars: 3600000 }] });
+  } else { $('wChart').innerHTML = '<div class="msg">אין קריאות בטווח הזה</div>'; $('sChart').innerHTML = ''; }
+  const air = P.air.filter((p) => p.t >= t0);
+  $('airCard').style.display = air.length ? '' : 'none';
+  if (air.length) {
+    const tv = air.map((p) => p.temp), hv = air.map((p) => p.rh), vv = air.map((p) => p.vpd), pad = (lo, hi, m) => [lo - Math.max(m, (hi - lo) * .1), hi + Math.max(m, (hi - lo) * .1)];
+    const [tl, th] = pad(Math.min(...tv), Math.max(...tv), 1), [hl, hh] = pad(Math.min(...hv), Math.max(...hv), 3);
+    const near = (t) => { let b = air[0]; for (const p of air) if (Math.abs(p.t - t) < Math.abs(b.t - t)) b = p; return b; };
+    const tipA = (b) => '<b>' + dm(b.t) + ' ' + hm(b.t) + '</b><br><span class="num">' + fmt(b.temp, 1) + '°C · ' + fmt(b.rh) + '% · VPD ' + fmt(b.vpd, 2) + '</span>';
+    chart($('aChart'), { t0, t1, height: 190, tip: true, yl: { min: tl, max: th, fmt: (v) => fmt(v) + '°' }, yr: { min: hl, max: hh, fmt: (v) => fmt(v) + '%' },
+      series: [{ pts: air.map((p) => [p.t, p.rh]), color: 'var(--blue)', axis: 'r', gap: 40 * 60000 }, { pts: air.map((p) => [p.t, p.temp]), color: 'var(--amber)', width: 2.2, gap: 40 * 60000 }],
+      onHover: (t) => { const b = near(t); return { t: b.t, v: b.temp, html: tipA(b) }; }, onClick: (t) => showAt(t) });
+    const vl = Math.max(0, Math.min(.6, ...vv) - .1), vh = Math.max(1.8, ...vv) + .1;
+    chart($('vChart'), { t0, t1, height: 130, tip: true, yl: { min: vl, max: vh, fmt: (v) => fmt(v, 1) }, bands: [[.8, 1.5, 'color-mix(in srgb, var(--green) 12%, transparent)']],
+      series: [{ pts: air.map((p) => [p.t, p.vpd]), color: 'var(--green)', width: 2.2, gap: 40 * 60000 }],
+      onHover: (t) => { const b = near(t); return { t: b.t, v: b.vpd, html: tipA(b) }; } });
+  }
+}
+function days() {
+  const P = G.plant, A = P.A, D = {};
+  A.pts.forEach((p, i) => { const k = dayKey(p.t), d = D[k] || (D[k] = { t: p.t, lost: 0, db: 0, n: 0, inn: 0, v: [] }); if (p.db != null) d.db = Math.max(d.db, p.db); if (i && p.w < A.pts[i - 1].w && p.t - A.pts[i - 1].t < 40 * 60000) d.lost += A.pts[i - 1].w - p.w; });
+  A.ev.forEach((e) => { const d = D[dayKey(e.t)]; if (d) { d.n++; d.inn += e.added; } });
+  P.air.forEach((p) => { const d = D[dayKey(p.t)]; if (d) d.v.push(p.vpd); });
+  $('days').innerHTML = Object.keys(D).sort().reverse().map((k) => { const d = D[k], cd = cycleDay(G.cycle, d.t), v = d.v.length ? d.v.reduce((a, b) => a + b, 0) / d.v.length : null;
+    return '<tr><td>' + dm(d.t) + '</td><td class="n">' + (cd || '—') + '</td><td class="n">' + d.n + '</td><td class="n">' + fmt(d.inn) + ' g</td><td class="n">' + fmt(d.lost) + ' g</td><td class="n">' + fmt(d.db, 1) + '%</td><td class="n">' + fmt(v, 2) + '</td></tr>'; }).join('');
+}
+
+/* ---------- photos ---------- */
+async function renderPhotos(gp) {
+  G.photos = gp;
+  const lists = gp.lists || {}, a = (gp.cams || [])[0], b = gp.stitch ? gp.cams[1] : null, L = (dev) => (lists[dev] || []).map((p) => ({ id: p.id, at: p.at, t: Date.parse(p.at) }));
+  G.pairs = b ? pairUp(L(a), L(b)) : L(a);
+  const n = await newestPhoto(gp);
+  if (n) setPhoto(n.src, n.at); else $('photo').innerHTML = '<div class="empty">אין עדיין תמונות</div>';
+  // one photo a day, nearest to 12:00
+  const best = {}; G.pairs.forEach((p) => { const k = dayKey(p.t), h = new Date(p.t).getHours() + new Date(p.t).getMinutes() / 60, dd = Math.abs(h - 12); if (!best[k] || dd < best[k].d) best[k] = { p, d: dd }; });
+  const list = Object.keys(best).sort().map((k) => best[k].p);
+  $('strip').innerHTML = list.map((p) => '<button data-t="' + p.t + '"><span class="ph"></span>' + (cycleDay(G.cycle, p.t) ? 'יום ' + cycleDay(G.cycle, p.t) : dm(p.t)) + '</button>').join('');
+  $('strip').querySelectorAll('button').forEach((x) => x.addEventListener('click', () => showAt(+x.dataset.t, x)));
+  $('strip').scrollLeft = -1e6;
+  try { const ids = list.flatMap((p) => p.id2 ? [p.id, p.id2] : [p.id]); await frames(ids, 320); const sp = $('strip').querySelectorAll('.ph'); for (let i = 0; i < list.length; i++) { const src = await pairSrc(list[i], 320); if (src && sp[i]) sp[i].style.backgroundImage = 'url(' + src + ')'; } } catch (e) {}
+}
+function pairUp(A, B) { const out = [], S = B.slice().sort((x, y) => x.t - y.t); let j = 0; A.forEach((p) => { while (j + 1 < S.length && Math.abs(S[j + 1].t - p.t) <= Math.abs(S[j].t - p.t)) j++; if (S[j] && Math.abs(S[j].t - p.t) <= 10 * 60000) out.push({ id: p.id, id2: S[j].id, t: p.t, at: p.at }); }); return out; }
+async function frames(ids, w) {
+  const need = [...new Set(ids)].filter((id) => !G.frames[w + id]);
+  for (let i = 0; i < need.length; i += 20) { const j = await apiPost({ action: 'tlframes', w, items: need.slice(i, i + 20).map((id) => ({ id })) }); (j.frames || []).forEach((f) => { if (f.b64) G.frames[w + f.id] = 'data:image/jpeg;base64,' + f.b64; }); }
+}
+async function pairSrc(p, w) {
+  await frames(p.id2 ? [p.id, p.id2] : [p.id], w);
+  const a = G.frames[w + p.id]; if (!p.id2 || !a) return a || null;
+  const [A, B] = await Promise.all([loadImg(a), loadImg(G.frames[w + p.id2])]);
+  return A ? joinImages(A, B, G.photos.stitch, A.width) : a;
+}
+function setPhoto(src, at) {
+  const cd = cycleDay(G.cycle, Date.parse(at));
+  $('photo').innerHTML = '<img alt="">' + '<div class="cap"><span>' + dm(at) + ' ' + hm(at) + '</span>' + (cd ? '<span>יום ' + cd + '</span>' : '') + '<span class="r">' + ago(Date.parse(at)) + '</span></div>';
+  const img = $('photo').querySelector('img'); img.src = src; img.onclick = () => lightbox(src, dm(at) + ' ' + hm(at));
+}
+async function showAt(t, btn) {
+  if (!G.pairs.length) return;
+  let b = G.pairs[0]; for (const p of G.pairs) if (Math.abs(p.t - t) < Math.abs(b.t - t)) b = p;
+  $('strip').querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === btn));
+  $('photo').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  const src = await pairSrc(b, 1280).catch(() => null); if (src) setPhoto(src, b.at);
+}
+
+/* ---------- load ---------- */
+async function loadAll() {
+  $('refresh').classList.add('spin'); $('msg').textContent = ''; $('msg').className = 'msg';
+  const days = Math.max(G.range, 3) + 1; G.loaded = Math.max(G.loaded || 0, days);
+  const err = (e, had) => { $('msg').textContent = (had ? 'מוצגים הנתונים האחרונים שנשמרו · ' : '') + e.message; $('msg').className = 'msg err'; };
+  await Promise.all([
+    cached('grow' + days, 'action=grow&days=' + days, (j) => { G.grow = j; store.set('cycle', j.cycle); render(); }, err),
+    cached('growphotos', 'action=growphotos&days=' + Math.max(G.range, 7), (j) => renderPhotos(j), err),
+  ]);
+  $('refresh').classList.remove('spin');
+}
+$('range').querySelectorAll('button').forEach((b) => { b.classList.toggle('on', +b.dataset.d === G.range); b.onclick = () => { G.range = +b.dataset.d; store.set('range', G.range); $('range').querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b)); if (Math.max(G.range, 3) + 1 > (G.loaded || 0)) loadAll(); else { render(); } }; });
+$('refresh').onclick = loadAll;
+let rt; window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(charts, 200); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden && G.grow && Date.now() - Date.parse(G.grow.now || 0) > 5 * 60000) loadAll(); });
+loadAll();
+setInterval(() => { if (!document.hidden) loadAll(); }, 5 * 60000);
+</script>
+</body>
+</html>

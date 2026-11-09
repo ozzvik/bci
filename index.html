@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d1210">
+<title>BCI</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <img class="logo" src="icon-192.png" alt="">
+  <div class="t"><h1>BCI</h1><div class="sub" id="sub">טוען…</div></div>
+  <button class="icon-btn" id="settings" aria-label="קישורים"></button>
+  <button class="icon-btn" id="refresh" aria-label="רענון"></button>
+</header>
+
+<main class="wrap grid two">
+  <!-- grow room -->
+  <a class="card room" href="grow.html" id="growCard">
+    <div class="head"><div class="ic">🌿</div><div><h3>חדר גידול</h3><div class="sub" id="gSub">—</div></div><div class="go">‹</div></div>
+    <div class="thumb" id="gThumb"></div>
+    <div class="body"><div class="tiles" id="gTiles"></div></div>
+  </a>
+
+  <!-- propagation -->
+  <div class="card room" id="propCard">
+    <div class="head"><div class="ic">🌱</div><div><h3>ריבוי</h3><div class="sub" id="pSub">—</div></div></div>
+    <div class="body">
+      <div class="tiles" id="pTiles"></div>
+      <div id="pBatches" class="list"></div>
+      <div id="pWater" class="list"></div>
+      <div id="pTasks" class="list"></div>
+      <div class="links" id="pLinks"></div>
+    </div>
+  </div>
+</main>
+<div class="wrap"><div class="msg" id="msg"></div></div>
+
+<dialog id="dlg" style="border:1px solid var(--line);border-radius:18px;background:var(--card);color:var(--ink);max-width:520px;width:calc(100% - 32px)">
+  <form method="dialog">
+    <h3 style="margin-top:0">קישורים לאפליקציות הריבוי</h3>
+    <p class="muted small">הדבק את הקישורים שבהם אתה פותח היום את דף הניהול ואת אפליקציית העובד. הם נשמרים רק בטלפון הזה.</p>
+    <label class="small">דף ניהול (אדמין)<br><input id="uAdmin" dir="ltr" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--card2);color:var(--ink)"></label><br><br>
+    <label class="small">אפליקציית העובד (סבב)<br><input id="uWorker" dir="ltr" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--card2);color:var(--ink)"></label>
+    <div class="links"><button class="btn primary" value="save">שמור</button><button class="btn" value="cancel">ביטול</button></div>
+  </form>
+</dialog>
+
+<script src="app.js"></script>
+<script>
+$('refresh').innerHTML = ICON.refresh; $('settings').innerHTML = ICON.gear;
+
+function renderGrow(j) {
+  const c = j.cycle || {}, P = plantNow(j.points || [], c), d = cycleDay(c, Date.now()), a = P.airNow;
+  $('gSub').textContent = (c.name || 'מחזור נוכחי') + (d ? ' · יום ' + d : '');
+  const vs = a ? vpdState(a.vpd) : '', dbc = P.db >= P.lim ? 'bad' : P.db >= P.lim * .8 ? 'warn' : '';
+  const eta = P.eta == null ? '—' : P.eta === 0 ? 'עכשיו' : P.eta < 48 ? hm(P.t + P.eta * 3600000) : '> יומיים';
+  $('gTiles').innerHTML = [
+    tile('VPD', a ? fmt(a.vpd, 2) : '—', 'kPa', a ? ago(a.t) : '', vs),
+    tile('טמפ׳ · לחות', a ? fmt(a.temp, 1) + '°' : '—', a ? fmt(a.rh) + '%' : '', ''),
+    tile('ייבוש', fmt(P.db, 1), '%', 'סף ' + P.lim + '%', dbc, '<div class="bar ' + dbc + '"><i style="width:' + Math.max(0, Math.min(100, (P.db || 0) / P.lim * 100)) + '%"></i></div>'),
+    tile('השקיה הבאה', eta, '', P.w != null ? '<span class="num">' + fmt(P.w) + ' g</span> · <span class="num">' + fmt(P.speed) + ' g/h</span>' : ''),
+  ].join('');
+}
+async function renderGrowPhoto(gp) { const n = await newestPhoto(gp); if (n) { $('gThumb').style.backgroundImage = 'url(' + n.src + ')'; $('gThumb').style.display = ''; } else $('gThumb').style.display = 'none'; }
+
+function renderProp(j) {
+  const p = j.prop || {}, cl = j.climate, r = p.round, today = dayKey(Date.now());
+  const active = (p.batches || []).reduce((s, b) => s + (b.trays || 0), 0);
+  $('pSub').textContent = (p.batches || []).length + ' אצוות פעילות · ' + active + ' מגשים';
+  const vs = cl ? vpdState(cl.vpd) : '';
+  $('pTiles').innerHTML = [
+    tile('VPD בחדר', cl ? fmt(cl.vpd, 2) : '—', 'kPa', cl ? ago(Date.parse(cl.at)) : '', vs),
+    tile('טמפ׳ · לחות', cl ? fmt(cl.temp, 1) + '°' : '—', cl ? fmt(cl.rh) + '%' : '', p.day ? 'היום <span class="num">' + fmt(p.day.tMin, 1) + '–' + fmt(p.day.tMax, 1) + '°</span>' : ''),
+    tile('נשקלו היום', r ? r.weighed : '—', r ? '/ ' + r.active : '', r && r.active ? (r.weighed >= r.active ? 'הסבב הושלם' : 'נשארו ' + (r.active - r.weighed)) : '', r && r.active && r.weighed >= r.active ? 'good' : ''),
+    tile('צריכים השקיה', (p.water || []).length, '', 'מגשים מעל הסף', (p.water || []).length ? 'warn' : 'good'),
+  ].join('');
+  $('pBatches').innerHTML = (p.batches || []).map((b) => {
+    const day = Math.floor((Date.parse(today) - Date.parse(b.first)) / DAY), pct = b.counted ? b.rooted / b.counted * 100 : null;
+    const f = (p.forecasts || []).filter((x) => x.batch === b.name)[0];
+    return '<div class="it"><b>' + esc(b.name.replace(/^Batch /, 'אצווה ')) + '</b><span class="muted small">יום ' + day + ' · ' + b.trays + ' מגשים</span><span class="r">' + (pct != null ? 'השרשה <span class="num">' + fmt(pct) + '%</span>' : 'עוד לא נספר') + (f && f.fc != null ? ' · צפי <span class="num">' + fmt(f.fc) + '%</span>' : '') + '</span></div>';
+  }).join('');
+  $('pWater').innerHTML = (p.water || []).slice(0, 6).map((w) => '<div class="it"><span class="dot warn"></span>מגש ' + esc(w.tray) + ' <span class="muted small">' + esc(w.place) + '</span><span class="r num">' + fmt(w.db, 1) + '%</span></div>').join('');
+  $('pTasks').innerHTML = (p.tasks || []).slice(0, 4).map((t) => '<div class="it">📋 <span class="small">' + esc(t) + '</span></div>').join('');
+  const ua = store.get('adminUrl'), uw = store.get('workerUrl');
+  $('pLinks').innerHTML = (uw ? '<a class="btn primary" href="' + esc(uw) + '">פתח סבב</a>' : '') + (ua ? '<a class="btn" href="' + esc(ua) + '">דף ניהול</a>' : '') + (!ua && !uw ? '<button class="btn" onclick="openDlg()">הוסף קישורים לאפליקציות הריבוי</button>' : '');
+}
+
+function openDlg() { $('uAdmin').value = store.get('adminUrl') || ''; $('uWorker').value = store.get('workerUrl') || ''; $('dlg').showModal(); }
+$('dlg').addEventListener('close', () => { if ($('dlg').returnValue === 'save') { store.set('adminUrl', $('uAdmin').value.trim()); store.set('workerUrl', $('uWorker').value.trim()); const h = store.get('hub'); if (h) renderProp(h); } });
+$('settings').onclick = openDlg;
+
+async function loadAll() {
+  $('refresh').classList.add('spin'); $('msg').textContent = ''; $('msg').className = 'msg';
+  const err = (e, had) => { $('msg').textContent = (had ? 'מוצגים הנתונים האחרונים שנשמרו · ' : '') + e.message; $('msg').className = 'msg err'; };
+  await Promise.all([
+    cached('grow3', 'action=grow&days=3', renderGrow, err),
+    cached('hub', 'action=hub', renderProp, err),
+    cached('growphotos', 'action=growphotos&days=7', renderGrowPhoto, err),
+  ]);
+  $('sub').textContent = 'עודכן ' + hm(Date.now());
+  $('refresh').classList.remove('spin');
+}
+$('refresh').onclick = loadAll;
+loadAll();
+setInterval(() => { if (!document.hidden) loadAll(); }, 5 * 60000);
+</script>
+</body>
+</html>
