@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d1210">
+<title>תמונות וטיימלאפס · BCI</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <a class="icon-btn" href="index.html" aria-label="לדשבורד" id="back"></a>
+  <div class="t"><h1>תמונות וטיימלאפס</h1><div class="sub" id="sub">חדר גידול</div></div>
+</header>
+
+<main class="wrap grid">
+  <div class="seg" id="tabs" style="justify-self:start"><button data-t="at" class="on">תמונה לפי זמן</button><button data-t="tl">טיימלאפס</button></div>
+
+  <!-- one photo at a chosen time -->
+  <section class="card" id="secAt">
+    <div class="form">
+      <label>תאריך<input type="date" id="aDate"></label>
+      <label>שעה<input type="time" id="aTime" step="900"></label>
+      <label>מצלמה<select class="cam" id="aCam"></select></label>
+      <button class="btn primary" id="aGo">הצג</button>
+    </div>
+    <div class="photo" id="aPhoto" style="margin-top:12px"><div class="empty">בחר תאריך ושעה</div></div>
+    <div class="row-nav">
+      <button class="btn" id="aPrev">‹ קודמת</button>
+      <span class="muted small" id="aInfo"></span>
+      <button class="btn" id="aNext">הבאה ›</button>
+    </div>
+  </section>
+
+  <!-- timelapse -->
+  <section class="card" id="secTl" hidden>
+    <div class="form">
+      <label>מתאריך<input type="date" id="tFrom"></label>
+      <label>עד<input type="date" id="tTo"></label>
+      <label>מצלמה<select class="cam" id="tCam"></select></label>
+      <label>תמונות<select id="tMode"><option value="hour">אחת ביום</option><option value="all">כל התמונות</option></select></label>
+      <label id="tHourL">בשעה<input type="number" id="tHour" min="0" max="23" value="12"></label>
+      <label>מהירות<select id="tFps"><option value="2">2 בשנייה</option><option value="5" selected>5 בשנייה</option><option value="10">10 בשנייה</option><option value="20">20 בשנייה</option></select></label>
+      <button class="btn primary" id="tGo">טען</button>
+    </div>
+    <div class="muted small" id="tMsg" style="margin-top:8px"></div>
+    <div class="photo" id="tBox" style="margin-top:12px"><canvas id="tCv" style="width:100%;display:block"></canvas><div class="empty" id="tEmpty">בחר טווח ולחץ "טען"</div></div>
+    <div class="row-nav" id="tCtl" hidden>
+      <button class="btn primary" id="tPlay">▶ נגן</button>
+      <input type="range" id="tSeek" min="0" value="0" style="flex:1">
+      <button class="btn" id="tRec">⬇ הורד סרטון</button>
+    </div>
+  </section>
+  <div class="msg" id="msg"></div>
+</main>
+
+<script src="app.js"></script>
+<script>
+$('back').innerHTML = ICON.back;
+const S = { cams: [], st: null, lists: {}, frames: {}, day: [], i: 0, tl: [], k: 0, timer: null };
+const cycle = store.get('cycle') || {};
+const today = dayKey(Date.now());
+const err = (e) => { $('msg').textContent = e.message || String(e); $('msg').className = 'msg err'; };
+
+/* ---------- tabs ---------- */
+$('tabs').querySelectorAll('button').forEach((b) => b.onclick = () => {
+  $('tabs').querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b));
+  $('secAt').hidden = b.dataset.t !== 'at'; $('secTl').hidden = b.dataset.t !== 'tl'; store.set('photosTab', b.dataset.t);
+});
+if (store.get('photosTab') === 'tl') $('tabs').querySelectorAll('button')[1].click();
+
+/* ---------- photo lists (the server lists the photos of one camera between two dates) ---------- */
+async function camList(dev, from, to, hour) {
+  const key = [dev, from, to, hour].join('|');
+  if (!S.lists[key]) {
+    const j = await api('action=photolist&device=' + encodeURIComponent(dev) + '&from=' + from + '&to=' + to + (hour != null ? '&hour=' + hour : ''));
+    S.lists[key] = (j.photos || []).map((p) => ({ id: p.id, at: p.at, t: Date.parse(p.at) }));
+  }
+  return S.lists[key];
+}
+// two cameras: each photo of the first one with the photo of the second taken within 10 minutes
+function pairUp(A, B) { const out = [], Bs = B.slice().sort((x, y) => x.t - y.t); let j = 0; A.forEach((p) => { while (j + 1 < Bs.length && Math.abs(Bs[j + 1].t - p.t) <= Math.abs(Bs[j].t - p.t)) j++; if (Bs[j] && Math.abs(Bs[j].t - p.t) <= 10 * 60000) out.push({ id: p.id, id2: Bs[j].id, t: p.t, at: p.at }); }); return out; }
+async function items(cam, from, to, hour) {
+  if (cam !== 'join') return camList(cam, from, to, hour);
+  const [A, B] = await Promise.all([camList(S.cams[0], from, to, hour), camList(S.cams[1], from, to, hour)]);
+  return pairUp(A, B);
+}
+async function frames(ids, w, onProgress) {
+  const need = [...new Set(ids)].filter((id) => !S.frames[w + id]);
+  for (let i = 0; i < need.length; i += 20) {
+    const j = await apiPost({ action: 'tlframes', w, items: need.slice(i, i + 20).map((id) => ({ id })) });
+    (j.frames || []).forEach((f) => { if (f.b64) S.frames[w + f.id] = 'data:image/jpeg;base64,' + f.b64; });
+    if (onProgress) onProgress(Math.min(need.length, i + 20), need.length);
+  }
+}
+async function srcOf(p, w) {
+  await frames(p.id2 ? [p.id, p.id2] : [p.id], w);
+  const a = S.frames[w + p.id]; if (!p.id2 || !a) return a || null;
+  const [A, B] = await Promise.all([loadImg(a), loadImg(S.frames[w + p.id2])]);
+  return A ? joinImages(A, B, S.st, A.width) : a;
+}
+const caption = (p) => { const cd = cycleDay(cycle, p.t); return dm(p.t) + ' · ' + hm(p.t) + (cd ? ' · יום ' + cd : ''); };
+
+/* ---------- one photo at a chosen time ---------- */
+async function showAt() {
+  const d = $('aDate').value, tm = $('aTime').value || '12:00'; if (!d) return;
+  $('msg').textContent = ''; $('aPhoto').innerHTML = '<div class="empty">טוען…</div>'; $('aInfo').textContent = '';
+  try {
+    S.day = await items($('aCam').value, d, d, null);
+    if (!S.day.length) { $('aPhoto').innerHTML = '<div class="empty">אין תמונות בתאריך הזה</div>'; return; }
+    const want = new Date(d + 'T' + tm + ':00').getTime();
+    S.i = 0; S.day.forEach((p, i) => { if (Math.abs(p.t - want) < Math.abs(S.day[S.i].t - want)) S.i = i; });
+    await drawAt();
+  } catch (e) { err(e); $('aPhoto').innerHTML = '<div class="empty">לא נטען</div>'; }
+}
+async function drawAt() {
+  const p = S.day[S.i]; if (!p) return;
+  $('aInfo').textContent = (S.i + 1) + ' / ' + S.day.length + ' ביום הזה';
+  const src = await srcOf(p, 1280);
+  if (!src) { $('aPhoto').innerHTML = '<div class="empty">התמונה לא נטענה</div>'; return; }
+  $('aPhoto').innerHTML = '<img alt=""><div class="cap"><span>' + caption(p) + '</span><span class="r">' + ago(p.t) + '</span></div>';
+  const img = $('aPhoto').querySelector('img'); img.src = src; img.onclick = () => lightbox(src, caption(p));
+  $('aTime').value = hm(p.t);
+}
+$('aGo').onclick = showAt;
+$('aPrev').onclick = () => { if (S.i > 0) { S.i--; drawAt(); } };
+$('aNext').onclick = () => { if (S.i < S.day.length - 1) { S.i++; drawAt(); } };
+
+/* ---------- timelapse ---------- */
+const MAXF = 400;
+$('tMode').onchange = () => { $('tHourL').style.display = $('tMode').value === 'hour' ? '' : 'none'; };
+async function loadTl() {
+  stop(); $('msg').textContent = '';
+  const from = $('tFrom').value, to = $('tTo').value, hour = $('tMode').value === 'hour' ? +$('tHour').value : null;
+  if (!from || !to || from > to) { $('tMsg').textContent = 'בדוק את התאריכים'; return; }
+  $('tMsg').textContent = 'מחפש תמונות…'; $('tCtl').hidden = true;
+  try {
+    let list = await items($('tCam').value, from, to, hour);
+    if (!list.length) { $('tMsg').textContent = 'אין תמונות בטווח הזה'; return; }
+    if (list.length > MAXF) { const step = list.length / MAXF; list = Array.from({ length: MAXF }, (_, i) => list[Math.floor(i * step)]); }
+    const ids = list.flatMap((p) => p.id2 ? [p.id, p.id2] : [p.id]);
+    await frames(ids, 640, (a, n) => { $('tMsg').textContent = 'טוען תמונות ' + a + ' / ' + n; });
+    $('tMsg').textContent = 'מכין…';
+    S.tl = [];
+    for (const p of list) { const src = await srcOf(p, 640), im = await loadImg(src); if (im) S.tl.push({ im, p }); }
+    if (!S.tl.length) { $('tMsg').textContent = 'התמונות לא נטענו'; return; }
+    const cv = $('tCv'); cv.width = S.tl[0].im.width; cv.height = S.tl[0].im.height;
+    $('tEmpty').style.display = 'none'; $('tCtl').hidden = false; $('tSeek').max = S.tl.length - 1;
+    $('tMsg').textContent = S.tl.length + ' תמונות · ' + dm(S.tl[0].p.t) + ' – ' + dm(S.tl[S.tl.length - 1].p.t) + ' · ' + (S.tl.length / +$('tFps').value).toFixed(1) + ' שניות';
+    S.k = 0; drawTl(); play();
+  } catch (e) { err(e); $('tMsg').textContent = ''; }
+}
+function drawTl() {
+  const f = S.tl[S.k]; if (!f) return;
+  const cv = $('tCv'), x = cv.getContext('2d'), W = cv.width, H = cv.height;
+  x.fillStyle = '#000'; x.fillRect(0, 0, W, H); x.drawImage(f.im, 0, 0, W, H);
+  const g = x.createLinearGradient(0, H - 60, 0, H); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,.7)'); x.fillStyle = g; x.fillRect(0, H - 60, W, 60);
+  x.fillStyle = '#fff'; x.font = '600 ' + Math.round(W / 28) + 'px Heebo, sans-serif'; x.textAlign = 'right'; x.direction = 'rtl';
+  x.fillText(caption(f.p), W - 14, H - 14);
+  $('tSeek').value = S.k;
+}
+function play() {
+  stop(); $('tPlay').textContent = '⏸ עצור';
+  S.timer = setInterval(() => { S.k = (S.k + 1) % S.tl.length; drawTl(); if (S.rec && S.k === 0) finishRec(); }, 1000 / +$('tFps').value);
+}
+function stop() { if (S.timer) clearInterval(S.timer); S.timer = null; $('tPlay').textContent = '▶ נגן'; }
+$('tGo').onclick = loadTl;
+$('tPlay').onclick = () => S.timer ? stop() : play();
+$('tSeek').oninput = () => { stop(); S.k = +$('tSeek').value; drawTl(); };
+$('tFps').onchange = () => { if (S.timer) play(); };
+// saves the video: plays it once from the start while recording the picture
+$('tRec').onclick = () => {
+  if (!window.MediaRecorder || !$('tCv').captureStream) { $('tMsg').textContent = 'הדפדפן הזה לא יודע לשמור סרטון'; return; }
+  const type = ['video/mp4', 'video/webm;codecs=vp9', 'video/webm'].find((t) => MediaRecorder.isTypeSupported(t)); if (!type) { $('tMsg').textContent = 'הדפדפן הזה לא יודע לשמור סרטון'; return; }
+  const chunks = [], r = new MediaRecorder($('tCv').captureStream(+$('tFps').value), { mimeType: type, videoBitsPerSecond: 4e6 });
+  r.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
+  r.onstop = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(chunks, { type })); a.download = 'timelapse_' + $('tFrom').value + '_' + $('tTo').value + (type.includes('mp4') ? '.mp4' : '.webm'); a.click(); $('tRec').disabled = false; $('tMsg').textContent = 'הסרטון נשמר'; };
+  S.rec = r; $('tRec').disabled = true; $('tMsg').textContent = 'מקליט…'; S.k = 0; drawTl(); r.start(); play();
+};
+function finishRec() { const r = S.rec; S.rec = null; setTimeout(() => r.stop(), 1000 / +$('tFps').value); }
+
+/* ---------- start ---------- */
+async function init() {
+  $('aDate').value = today; $('aTime').value = String(new Date().getHours()).padStart(2, '0') + ':00';
+  $('tTo').value = today; $('tFrom').value = cycle.start || dayKey(Date.now() - 14 * DAY);
+  try {
+    const gp = await api('action=growphotos&days=1');
+    S.cams = gp.cams || []; S.st = gp.stitch || null;
+    const opts = (S.st && S.cams[1] ? '<option value="join">שתי המצלמות מחוברות</option>' : '') + S.cams.map((c) => '<option value="' + esc(c) + '">' + esc(c) + '</option>').join('');
+    document.querySelectorAll('select.cam').forEach((s) => { s.innerHTML = opts; });
+    showAt();
+  } catch (e) { err(e); }
+}
+init();
+</script>
+</body>
+</html>

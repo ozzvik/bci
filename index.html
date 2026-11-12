@@ -20,6 +20,12 @@
   <button class="icon-btn" id="refresh" aria-label="רענון"></button>
 </header>
 
+<nav class="wrap nav" id="nav" style="padding-bottom:0">
+  <a href="grow.html"><span class="ic">🌿</span><span>חדר גידול<small>גרפים ונתונים</small></span></a>
+  <a href="photos.html"><span class="ic">🎬</span><span>תמונות וטיימלאפס<small>לפי תאריך ושעה</small></span></a>
+  <a id="nWorker" class="off"><span class="ic">🧺</span><span>סבב שקילה<small>אפליקציית העובד</small></span></a>
+  <a id="nAdmin" class="off"><span class="ic">🌱</span><span>ניהול ריבוי<small>דף האדמין</small></span></a>
+</nav>
 <main class="wrap grid two">
   <!-- grow room -->
   <a class="card room" href="grow.html" id="growCard">
@@ -76,7 +82,7 @@ function renderProp(j) {
   $('pSub').textContent = (p.batches || []).length + ' אצוות פעילות · ' + active + ' מגשים';
   const vs = cl ? vpdState(cl.vpd) : '';
   $('pTiles').innerHTML = [
-    tile('VPD בחדר', cl ? fmt(cl.vpd, 2) : '—', 'kPa', cl ? ago(Date.parse(cl.at)) : '', vs),
+    tile('VPD בחדר', cl ? fmt(cl.vpd, 2) : '—', 'kPa', cl ? ago(Date.parse(cl.at)) + (cl.source ? ' · ' + cl.source : '') : '', vs),
     tile('טמפ׳ · לחות', cl ? fmt(cl.temp, 1) + '°' : '—', cl ? fmt(cl.rh) + '%' : '', p.day ? 'היום <span class="num">' + fmt(p.day.tMin, 1) + '–' + fmt(p.day.tMax, 1) + '°</span>' : ''),
     tile('נשקלו היום', r ? r.weighed : '—', r ? '/ ' + r.active : '', r && r.active ? (r.weighed >= r.active ? 'הסבב הושלם' : 'נשארו ' + (r.active - r.weighed)) : '', r && r.active && r.weighed >= r.active ? 'good' : ''),
     tile('צריכים השקיה', (p.water || []).length, '', 'מגשים מעל הסף', (p.water || []).length ? 'warn' : 'good'),
@@ -89,6 +95,7 @@ function renderProp(j) {
   $('pWater').innerHTML = (p.water || []).slice(0, 6).map((w) => '<div class="it"><span class="dot warn"></span>מגש ' + esc(w.tray) + ' <span class="muted small">' + esc(w.place) + '</span><span class="r num">' + fmt(w.db, 1) + '%</span></div>').join('');
   $('pTasks').innerHTML = (p.tasks || []).slice(0, 4).map((t) => '<div class="it">📋 <span class="small">' + esc(t) + '</span></div>').join('');
   const ua = store.get('adminUrl'), uw = store.get('workerUrl');
+  if (ua) { $('nAdmin').href = ua; $('nAdmin').classList.remove('off'); } if (uw) { $('nWorker').href = uw; $('nWorker').classList.remove('off'); }
   $('pLinks').innerHTML = (uw ? '<a class="btn primary" href="' + esc(uw) + '">פתח סבב</a>' : '') + (ua ? '<a class="btn" href="' + esc(ua) + '">דף ניהול</a>' : '') + (!ua && !uw ? '<button class="btn" onclick="openDlg()">הוסף קישורים לאפליקציות הריבוי</button>' : '');
 }
 
