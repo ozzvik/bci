@@ -65,6 +65,9 @@ function slopeGH(pts) { if (pts.length < 3) return null; const n = pts.length, m
 function quietPts(A, from, to) { return A.pts.filter((p) => p.t >= from && p.t <= to && !A.ev.some((e) => p.t >= e.t - 10 * 60000 && p.t <= e.peakT + 60 * 60000)); }
 /** everything the screens show about the plant now */
 function plantNow(points, cycle) {
+  // only the grow-room scale (the sheet also gets the readings of other scales, e.g. M5-scale2 in propagation)
+  const dev = (cycle && cycle.scale) || 'M5-grow';
+  points = points.filter((p) => !p.device || p.device === dev);
   const A = analyseWeight(points, cycle), lim = +(cycle && cycle.limit) || 20, out = { A, lim };
   const n = A.pts[A.pts.length - 1];
   if (n) {
