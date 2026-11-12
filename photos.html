@@ -30,6 +30,7 @@
       <button class="btn primary" id="aGo">הצג</button>
     </div>
     <div class="photo" id="aPhoto" style="margin-top:12px"><div class="empty">בחר תאריך ושעה</div></div>
+    <div class="tiles" id="aTiles" style="margin-top:12px"></div>
     <div class="row-nav">
       <button class="btn" id="aPrev">‹ קודמת</button>
       <span class="muted small" id="aInfo"></span>
@@ -118,8 +119,33 @@ async function showAt() {
     await drawAt();
   } catch (e) { err(e); $('aPhoto').innerHTML = '<div class="empty">לא נטען</div>'; }
 }
+/* air + weight at the moment of the photo (from the grow-room readings) */
+S.grow = {};
+async function growAround(t) {
+  const days = Math.min(120, Math.ceil((Date.now() - t) / DAY) + 4);
+  const key = Object.keys(S.grow).map(Number).filter((d) => d >= days).sort((a, b) => a - b)[0];
+  if (key) return S.grow[key];
+  const j = await api('action=grow&days=' + days);
+  return (S.grow[days] = { P: plantNow(j.points || [], j.cycle || cycle), cycle: j.cycle || cycle });
+}
+function nearest(arr, t, maxMs) { let b = null; for (const x of arr) if (Math.abs(x.t - t) <= maxMs && (!b || Math.abs(x.t - t) < Math.abs(b.t - t))) b = x; return b; }
+async function readingsAt(t) {
+  $('aTiles').innerHTML = [tile('VPD', '…', 'kPa', ''), tile('טמפ׳ · לחות', '…', '', ''), tile('משקל', '…', 'g', ''), tile('ייבוש', '…', '%', '')].join('');
+  try {
+    const g = await growAround(t), a = nearest(g.P.air, t, 30 * 60000), w = nearest(g.P.A.pts, t, 30 * 60000), lim = g.P.lim;
+    const dbc = w && w.db != null ? (w.db >= lim ? 'bad' : w.db >= lim * .8 ? 'warn' : '') : '';
+    const lastIrr = g.P.A.ev.filter((e) => e.t <= t).pop();
+    $('aTiles').innerHTML = [
+      tile('VPD', a ? fmt(a.vpd, 2) : '—', 'kPa', a ? 'נמדד ' + hm(a.t) : 'אין מדידה סמוך לתמונה', a ? vpdState(a.vpd) : ''),
+      tile('טמפ׳ · לחות', a ? fmt(a.temp, 1) + '°' : '—', a ? fmt(a.rh) + '%' : '', ''),
+      tile('משקל', w ? fmt(w.w) : '—', 'g', w && w.full ? 'מלא ' + fmt(w.full) + ' g' : ''),
+      tile('ייבוש', w && w.db != null ? fmt(w.db, 1) : '—', '%', lastIrr ? 'השקיה אחרונה ' + dm(lastIrr.t) + ' ' + hm(lastIrr.t) : 'סף ' + lim + '%', dbc),
+    ].join('');
+  } catch (e) { $('aTiles').innerHTML = '<div class="muted small">' + esc(e.message) + '</div>'; }
+}
 async function drawAt() {
   const p = S.day[S.i]; if (!p) return;
+  readingsAt(p.t);
   $('aInfo').textContent = (S.i + 1) + ' / ' + S.day.length + ' ביום הזה';
   const src = await srcOf(p, 1280);
   if (!src) { $('aPhoto').innerHTML = '<div class="empty">התמונה לא נטענה</div>'; return; }
