@@ -189,8 +189,11 @@ async function init() {
   $('aDate').value = today; $('aTime').value = String(new Date().getHours()).padStart(2, '0') + ':00';
   $('tTo').value = today; $('tFrom').value = cycle.start || dayKey(Date.now() - 14 * DAY);
   try {
-    const gp = await api('action=growphotos&days=1');
-    S.cams = gp.cams || []; S.st = gp.stitch || null;
+    const [gp, pl] = await Promise.all([api('action=growphotos&days=1'), api('action=photolist&from=' + today + '&to=' + today)]);
+    // every camera that has photos; the joined picture uses the alignment saved in the admin page, or simply camera 1 above camera 2
+    const devs = (pl.devices || []).filter((d) => /cam/i.test(d)).sort();
+    S.st = gp.stitch || (devs.length > 1 ? { a: devs[0], b: devs[1], dx: 0, dy: 0.75, s: 1, r: 0 } : null);
+    S.cams = S.st ? [S.st.a, S.st.b].concat(devs.filter((d) => d !== S.st.a && d !== S.st.b)) : (devs.length ? devs : gp.cams || []);
     const opts = (S.st && S.cams[1] ? '<option value="join">שתי המצלמות מחוברות</option>' : '') + S.cams.map((c) => '<option value="' + esc(c) + '">' + esc(c) + '</option>').join('');
     document.querySelectorAll('select.cam').forEach((s) => { s.innerHTML = opts; });
     showAt();
