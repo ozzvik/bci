@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d1210">
+<title>דישון · BCI</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+  :root { --fert: #1f9e8f; --fert-d: #18857a; }
+  .icon-btn.fert svg { stroke: var(--fert); }
+  /* hero: ליטר/קוב לכל סטוק */
+  .hero { background: linear-gradient(160deg, color-mix(in srgb, var(--fert) 14%, transparent), var(--card)); border: 1px solid color-mix(in srgb, var(--fert) 35%, var(--line)); border-radius: var(--radius); padding: 14px; }
+  .hero .ht { font-size: 13px; font-weight: 800; color: var(--fert); margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+  .hero .ht .r { margin-inline-start: auto; font-weight: 500; font-size: 12px; color: var(--muted); }
+  .srow { display: flex; align-items: center; gap: 10px; padding: 9px 2px; border-bottom: 1px solid var(--line); }
+  .srow:last-child { border-bottom: 0; }
+  .srow .tag { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; font-weight: 800; font-size: 13px; color: #fff; flex: none; }
+  .srow .nm { flex: 1; min-width: 0; font-weight: 700; font-size: 14px; }
+  .srow .nm small { display: block; color: var(--muted); font-weight: 500; font-size: 11.5px; }
+  .srow .inp { display: flex; align-items: center; gap: 6px; }
+  .srow input { width: 72px; font: inherit; font-size: 15px; font-weight: 700; text-align: center; color: var(--ink); background: var(--card2); border: 1px solid var(--line); border-radius: 10px; padding: 7px 4px; direction: ltr; }
+  .srow .u { color: var(--muted); font-size: 11.5px; }
+  .srow .val { font-size: 19px; font-weight: 900; direction: ltr; min-width: 58px; text-align: end; }
+  .srow .val small { font-size: 11px; color: var(--muted); font-weight: 600; }
+  /* elements vs target */
+  .elem { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; }
+  .el { background: var(--card2); border: 1px solid var(--line); border-radius: 12px; padding: 9px 10px; }
+  .el .n { font-size: 12px; font-weight: 700; color: var(--muted); display: flex; justify-content: space-between; align-items: baseline; }
+  .el .n b { color: var(--ink); font-weight: 800; direction: ltr; font-size: 15px; }
+  .el .n .tg { font-size: 10.5px; color: var(--faint); direction: ltr; }
+  .el .bar { height: 5px; }
+  .el .bar i { background: var(--fert); }
+  .el.over .bar i { background: var(--amber); }
+  .el.low .bar i { background: var(--blue); }
+  .tog { display: inline-flex; background: var(--card2); border: 1px solid var(--line); border-radius: 11px; padding: 3px; }
+  .tog b { font-size: 13px; font-weight: 700; color: var(--muted); padding: 6px 14px; border-radius: 8px; cursor: pointer; }
+  .tog b.on { background: var(--fert); color: #fff; }
+  .btn.fert { background: var(--fert-d); border-color: var(--fert-d); color: #fff; }
+  .seg button.on { color: var(--fert); }
+  .psel { display: flex; align-items: center; gap: 8px; background: var(--card2); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; flex: 1; }
+  .psel select { flex: 1; font: inherit; font-size: 15px; font-weight: 700; color: var(--ink); background: none; border: 0; }
+  .stock-ed { background: var(--card2); border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin-bottom: 10px; }
+  .stock-ed .sh { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .stock-ed .sh .tag { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; font-weight: 800; color: #fff; font-size: 12px; }
+  .stock-ed .sh b { font-size: 15px; }
+  .itrow { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+  .itrow select { flex: 1; font: inherit; font-size: 13.5px; color: var(--ink); background: var(--card); border: 1px solid var(--line); border-radius: 9px; padding: 7px 8px; min-width: 0; }
+  .itrow input { width: 86px; font: inherit; font-size: 14px; text-align: center; color: var(--ink); background: var(--card); border: 1px solid var(--line); border-radius: 9px; padding: 7px 4px; direction: ltr; }
+  .itrow .del { color: var(--red); font-size: 18px; padding: 0 6px; }
+  .plist .it { cursor: pointer; }
+  .plist .it.on { border-color: var(--fert); background: color-mix(in srgb, var(--fert) 10%, var(--card2)); }
+  .banner { font-size: 12.5px; color: var(--amber); background: color-mix(in srgb, var(--amber) 12%, transparent); border: 1px solid color-mix(in srgb, var(--amber) 30%, var(--line)); border-radius: 12px; padding: 9px 12px; margin-bottom: 12px; }
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="icon-btn" href="index.html" aria-label="חזרה" id="back"></a>
+  <div class="t"><h1>דישון</h1><div class="sub" id="sub">מחשבון הזרקה</div></div>
+  <button class="icon-btn fert" id="refresh" aria-label="רענון"></button>
+</header>
+
+<main class="wrap">
+  <div class="seg" style="width:100%;margin-bottom:14px">
+    <button class="on" data-tab="calc" style="flex:1">מחשבון</button>
+    <button data-tab="stocks" style="flex:1">סטוקים</button>
+    <button data-tab="programs" style="flex:1">תוכניות</button>
+  </div>
+  <div class="banner" id="banner" hidden></div>
+
+  <!-- ===== מחשבון ===== -->
+  <section id="tab-calc">
+    <div class="grid two">
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div class="card" style="padding:14px">
+          <div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap">
+            <div class="psel"><span style="font-size:18px">📋</span><select id="prog"></select></div>
+            <span class="tog" id="mode"><b data-m="ec" class="on">EC</b><b data-m="ppm">ppm</b></span>
+          </div>
+          <div id="ecTargetRow" style="margin-top:10px;display:flex;align-items:center;gap:10px">
+            <label class="small muted" style="font-weight:600">EC יעד</label>
+            <input id="ecTarget" type="number" step="0.1" style="width:90px;font:inherit;font-size:15px;font-weight:700;text-align:center;color:var(--ink);background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:7px 4px;direction:ltr">
+            <span class="small muted">mS/cm</span>
+            <button class="btn fert" id="solve" style="margin-inline-start:auto">⚖️ פתור ליעד</button>
+          </div>
+        </div>
+
+        <div class="hero">
+          <div class="ht">💉 הזרקה — ליטר לקוב מים <span class="r">1 קוב = 1,000 ל׳</span></div>
+          <div id="stockRows"></div>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div class="tiles" id="outTiles"></div>
+        <div class="card">
+          <h2 id="elHd">תוצאה מול יעד · ppm</h2>
+          <div class="elem" id="elements"></div>
+        </div>
+        <div class="links">
+          <button class="btn fert" id="saveProg">💾 שמור כתוכנית</button>
+          <button class="btn" data-tab="stocks">ערוך סטוקים ›</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== סטוקים ===== -->
+  <section id="tab-stocks" hidden>
+    <div class="card">
+      <h2>הרכב הסטוקים <span class="r">ערכים לכל מיכל · גרם</span></h2>
+      <div id="stocksEd"></div>
+      <div class="links"><button class="btn" id="addStock">+ סטוק</button><button class="btn fert" id="saveStocks">💾 שמור סטוקים</button></div>
+    </div>
+  </section>
+
+  <!-- ===== תוכניות ===== -->
+  <section id="tab-programs" hidden>
+    <div class="card">
+      <h2>תוכניות דישון שמורות</h2>
+      <div class="list plist" id="progList"></div>
+      <p class="muted small" id="progHint" style="margin-top:12px"></p>
+    </div>
+  </section>
+</main>
+<div class="wrap"><div class="msg" id="msg"></div></div>
+
+<script src="app.js"></script>
+<script src="fert.js"></script>
+<script>
+$('refresh').innerHTML = ICON.refresh; $('back').innerHTML = ICON.back;
+const STCOL = { A: '#5fd38d', B: '#6aa8ff', C: '#c88a2a', D: '#b18cff', E: '#e07a9e', ACID: '#f2a63b' };
+const col = (id) => STCOL[id] || '#1f9e8f';
+let cur = null;            // התוכנית הפעילה (עותק עבודה)
+let inj = {};              // ל/קוב לכל סטוק (מצב עבודה)
+
+/* ---------- ניווט טאבים ---------- */
+function showTab(t) {
+  document.querySelectorAll('.seg [data-tab]').forEach((b) => b.classList.toggle('on', b.dataset.tab === t));
+  ['calc', 'stocks', 'programs'].forEach((x) => $('tab-' + x).hidden = x !== t);
+  if (t === 'stocks') renderStocksEd(); if (t === 'programs') renderProgList();
+}
+document.querySelectorAll('[data-tab]').forEach((b) => b.onclick = () => showTab(b.dataset.tab));
+
+/* ---------- מחשבון ---------- */
+function fillProgSelect() {
+  $('prog').innerHTML = PROGRAMS.map((p) => '<option value="' + esc(p.id) + '">' + esc(p.name) + (p.phase ? ' · ' + esc(p.phase) : '') + '</option>').join('');
+  if (cur) $('prog').value = cur.id;
+}
+function loadProgram(id) {
+  const p = PROGRAMS.find((x) => x.id === id) || PROGRAMS[0];
+  cur = JSON.parse(JSON.stringify(p));
+  inj = Object.assign({}, cur.inj || {});
+  STOCKS.forEach((s) => { if (inj[s.id] == null) inj[s.id] = 0; });
+  $('ecTarget').value = cur.targetEC || '';
+  setMode(cur.mode || 'ec');
+  renderStockRows(); recalc();
+}
+function setMode(m) { cur.mode = m; document.querySelectorAll('#mode b').forEach((b) => b.classList.toggle('on', b.dataset.m === m)); $('ecTargetRow').style.display = m === 'ec' ? 'flex' : 'none'; $('elHd').textContent = 'תוצאה מול יעד · ' + (m === 'ec' ? 'ppm (נגזר מ-EC)' : 'ppm'); }
+document.querySelectorAll('#mode b').forEach((b) => b.onclick = () => { setMode(b.dataset.m); recalc(); });
+
+function renderStockRows() {
+  $('stockRows').innerHTML = STOCKS.map((s) =>
+    '<div class="srow"><span class="tag" style="background:' + col(s.id) + '">' + esc(s.id) + '</span>' +
+    '<div class="nm">' + esc(s.name) + '<small>' + esc(s.note || '') + '</small></div>' +
+    '<div class="inp"><input type="number" step="0.01" min="0" data-s="' + esc(s.id) + '" value="' + (inj[s.id] || 0) + '"><span class="u">ל׳/קוב</span></div></div>'
+  ).join('');
+  $('stockRows').querySelectorAll('input').forEach((el) => el.oninput = () => { inj[el.dataset.s] = Math.max(0, Number(el.value) || 0); recalc(); });
+}
+function recalc() {
+  const r = forward(STOCKS, inj);
+  const targets = cur.targets || {};
+  $('outTiles').innerHTML = [
+    tile('EC מתקבל', fmt(r.ec, 2), 'mS', cur.mode === 'ec' ? 'יעד ' + fmt(Number($('ecTarget').value) || cur.targetEC, 2) : '', ''),
+    tile('סה״כ יסודות', fmt(r.total), 'ppm', '', ''),
+    tile('מינון כולל', fmt(STOCKS.reduce((a, s) => a + (inj[s.id] || 0), 0), 2), 'ל׳/קוב', '', ''),
+  ].join('');
+  $('elements').innerHTML = ELEMS.map((e) => {
+    const v = r.ppm[e] || 0, t = targets[e] || 0, pct = t ? v / t * 100 : 0;
+    const cls = !t ? '' : pct > 115 ? 'over' : pct < 85 ? 'low' : '';
+    return '<div class="el ' + cls + '"><div class="n"><span>' + e + ' <span class="tg">' + ELEM_HE[e] + '</span></span><b>' + fmt(v) + (t ? '<span class="tg"> / ' + fmt(t) + '</span>' : '') + '</b></div><div class="bar"><i style="width:' + Math.max(0, Math.min(100, pct)) + '%"></i></div></div>';
+  }).join('');
+}
+$('ecTarget').oninput = recalc;
+$('solve').onclick = () => {
+  const ecIn = Number($('ecTarget').value) || cur.targetEC || 2.4;
+  // יעדי ppm אמיתיים של השלב, מוקטנים/מוגדלים פרופורציונלית ל-EC שבחר המשתמש
+  const natEC = EC_MAIN.reduce((s, e) => s + (cur.targets[e] || 0), 0) * EC_K;
+  const k = natEC ? ecIn / natEC : 1, targets = {};
+  ELEMS.forEach((e) => { if (cur.targets[e] != null) targets[e] = cur.targets[e] * k; });
+  // נועלים חומצה (pH ידני) ומיקרו (E) על ערכי השלב, כדי שהפתירה תחשב רק את מיכלי הדשן הראשיים
+  const lock = { ACID: inj.ACID || 0 }; if ('E' in inj) lock.E = inj.E || 0;
+  const sol = nnls(STOCKS, targets, { lock });
+  Object.keys(sol).forEach((k) => sol[k] = Math.round(sol[k] * 100) / 100);
+  Object.assign(inj, sol);
+  renderStockRows(); recalc();
+  msg('חושבו הזרקות ליעדי השלב (EC ≈ ' + fmt(ecIn, 1) + ') — אפשר לכוונן ידנית');
+};
+$('saveProg').onclick = async () => {
+  const name = prompt('שם התוכנית:', cur.name || 'תוכנית חדשה'); if (!name) return;
+  const id = cur.id && cur.name === name ? cur.id : 'p' + Date.now();
+  const p = { id, name, phase: cur.phase || '', mode: cur.mode, targetEC: Number($('ecTarget').value) || cur.targetEC, inj: Object.assign({}, inj), targets: cur.targets || {} };
+  const i = PROGRAMS.findIndex((x) => x.id === id); if (i >= 0) PROGRAMS[i] = p; else PROGRAMS.push(p);
+  cur = JSON.parse(JSON.stringify(p));
+  const ok = await pushFert({ programs: PROGRAMS }); fillProgSelect(); $('prog').value = id;
+  msg(ok ? 'התוכנית נשמרה וסונכרנה' : 'נשמרה במכשיר — תסונכרן כשהשרת יתמוך');
+};
+$('prog').onchange = () => loadProgram($('prog').value);
+
+/* ---------- עריכת סטוקים ---------- */
+function fertOptions(sel) { return Object.keys(FERTS).map((f) => '<option' + (f === sel ? ' selected' : '') + '>' + esc(f) + '</option>').join(''); }
+function renderStocksEd() {
+  $('stocksEd').innerHTML = STOCKS.map((s, si) =>
+    '<div class="stock-ed" data-si="' + si + '"><div class="sh"><span class="tag" style="background:' + col(s.id) + '">' + esc(s.id) + '</span><b>' + esc(s.name) + '</b>' +
+    '<span class="muted small" style="margin-inline-start:auto">נפח מיכל</span><input type="number" class="vol" style="width:72px;font:inherit;text-align:center;background:var(--card);border:1px solid var(--line);border-radius:9px;padding:6px 4px;direction:ltr;color:var(--ink)" value="' + s.vol + '"><span class="muted small">ל׳</span></div>' +
+    (s.items || []).map((it, ii) => '<div class="itrow" data-ii="' + ii + '"><select class="fert">' + fertOptions(it.fert) + '</select><input class="g" type="number" value="' + it.g + '"><span class="muted small">ג׳</span><button class="del" title="מחק">✕</button></div>').join('') +
+    '<button class="btn small addItem" style="margin-top:4px">+ דשן</button></div>'
+  ).join('');
+  // wiring
+  $('stocksEd').querySelectorAll('.stock-ed').forEach((box) => {
+    const si = +box.dataset.si, s = STOCKS[si];
+    box.querySelector('.vol').oninput = (e) => s.vol = Number(e.target.value) || 1;
+    box.querySelectorAll('.itrow').forEach((row) => {
+      const ii = +row.dataset.ii;
+      row.querySelector('.fert').onchange = (e) => s.items[ii].fert = e.target.value;
+      row.querySelector('.g').oninput = (e) => s.items[ii].g = Number(e.target.value) || 0;
+      row.querySelector('.del').onclick = () => { s.items.splice(ii, 1); renderStocksEd(); };
+    });
+    box.querySelector('.addItem').onclick = () => { s.items.push({ fert: Object.keys(FERTS)[0], g: 0 }); renderStocksEd(); };
+  });
+}
+$('addStock').onclick = () => {
+  const id = prompt('מזהה הסטוק (אות):', ''); if (!id) return;
+  STOCKS.push({ id: id.toUpperCase(), name: 'סטוק ' + id.toUpperCase(), note: '', vol: 100, items: [{ fert: Object.keys(FERTS)[0], g: 0 }] });
+  renderStocksEd();
+};
+$('saveStocks').onclick = async () => { const ok = await pushFert({ stocks: STOCKS }); STOCKS.forEach((s) => { if (inj[s.id] == null) inj[s.id] = 0; }); renderStockRows(); recalc(); msg(ok ? 'הסטוקים נשמרו וסונכרנו' : 'נשמרו במכשיר — יסונכרנו כשהשרת יתמוך'); };
+
+/* ---------- תוכניות ---------- */
+function renderProgList() {
+  $('progList').innerHTML = PROGRAMS.map((p) =>
+    '<div class="it' + (cur && p.id === cur.id ? ' on' : '') + '" data-id="' + esc(p.id) + '"><b>' + esc(p.name) + '</b>' +
+    '<span class="muted small">' + esc(p.phase || '') + ' · ' + (p.mode === 'ec' ? 'EC ' + fmt(p.targetEC, 2) : 'ppm') + '</span>' +
+    '<span class="r">' + (p.id !== 'default' ? '<button class="del btn small" data-del="' + esc(p.id) + '" style="color:var(--red)">מחק</button>' : '') + '</span></div>'
+  ).join('');
+  $('progList').querySelectorAll('.it').forEach((it) => it.onclick = (e) => { if (e.target.dataset.del) return; loadProgram(it.dataset.id); fillProgSelect(); showTab('calc'); });
+  $('progList').querySelectorAll('[data-del]').forEach((b) => b.onclick = async (e) => { e.stopPropagation(); PROGRAMS = PROGRAMS.filter((p) => p.id !== b.dataset.del); await pushFert({ programs: PROGRAMS }); renderProgList(); fillProgSelect(); });
+  $('progHint').textContent = PROGRAMS.length + ' תוכניות · נשמרות בשרת ומסונכרנות לכל המכשירים';
+}
+
+/* ---------- עזר ---------- */
+let msgT; function msg(s) { $('msg').textContent = s; clearTimeout(msgT); msgT = setTimeout(() => $('msg').textContent = '', 4000); }
+function showBanner(s) { const b = $('banner'); if (s) { b.textContent = s; b.hidden = false; } else b.hidden = true; }
+
+/* ---------- הפעלה ---------- */
+async function init() {
+  $('refresh').classList.add('spin');
+  const r = await loadFert();
+  $('refresh').classList.remove('spin');
+  if (!r.synced) showBanner('עובד במצב מקומי (השרת עדיין לא תומך בסנכרון דישון) — הנתונים נשמרים במכשיר זה בינתיים.');
+  else showBanner('');
+  loadProgram((PROGRAMS.find((p) => p.id === 'bulking') || PROGRAMS[0]).id); fillProgSelect();
+  $('sub').textContent = STOCKS.length + ' סטוקים · ' + PROGRAMS.length + ' תוכניות';
+}
+$('refresh').onclick = init;
+init();
+</script>
+</body>
+</html>
