@@ -186,3 +186,89 @@ function lightbox(src, cap) {
   lb.querySelector('img').src = src; lb.querySelector('.cap').textContent = cap || ''; lb.classList.add('on');
 }
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+
+/* ================= AROYA-style pieces: recipe phases, metric tiles with a trend line, one chart of everything, side rail ================= */
+const COL = { vpd: '#3ddc97', temp: '#f5b942', rh: '#22c3e6', w: '#9d8cff', irr: '#3b8cff' };
+/* The recipe: the phases of flowering by week, with the targets of each phase.
+   id = the fertigation program of that phase (fert.html). Climate and dryback bands are starting values – change them here. */
+const RECIPE = [
+  { id: 'veg',      name: 'צימוח',   en: 'Veg',      from: 1, to: 2,  vpd: [0.8, 1.1], temp: [24, 28], rh: [60, 70], db: [10, 15] },
+  { id: 'stretch',  name: 'מתיחה',   en: 'Stretch',  from: 3, to: 3,  vpd: [1.0, 1.2], temp: [24, 28], rh: [55, 65], db: [12, 18] },
+  { id: 'bulking',  name: 'Bulking', en: 'Bulking',  from: 4, to: 6,  vpd: [1.1, 1.4], temp: [24, 27], rh: [50, 60], db: [15, 20] },
+  { id: 'ripening', name: 'הבשלה',   en: 'Ripening', from: 7, to: 8,  vpd: [1.2, 1.5], temp: [22, 26], rh: [45, 55], db: [18, 25] },
+  { id: 'flush',    name: 'שטיפה',   en: 'Flush',    from: 9, to: 99, vpd: [1.2, 1.5], temp: [20, 25], rh: [45, 55], db: [18, 25] },
+];
+function phaseOf(cycle) {
+  const day = cycleDay(cycle, Date.now()); if (!cycle || !cycle.start || !day || day < 1) return null;
+  const week = Math.floor((day - 1) / 7) + 1;
+  return { day, week, ph: RECIPE.find((p) => week >= p.from && week <= p.to) || RECIPE[RECIPE.length - 1] };
+}
+const band = (v, b, soft) => v == null || !isFinite(v) ? 'off' : v >= b[0] && v <= b[1] ? '' : v >= b[0] - soft && v <= b[1] + soft ? 'warn' : 'bad';
+const thin = (a, n) => { if (a.length <= n) return a; const s = a.length / n, o = []; for (let i = 0; i < n; i++) o.push(a[Math.floor(i * s)]); o.push(a[a.length - 1]); return o; };
+const arrMin = (a) => a.reduce((m, v) => v < m ? v : m, Infinity), arrMax = (a) => a.reduce((m, v) => v > m ? v : m, -Infinity);
+function spark(vals, color) {
+  vals = thin((vals || []).filter((v) => v != null && isFinite(v)), 40);
+  if (vals.length < 2) return '<svg class="sp" viewBox="0 0 100 22"></svg>';
+  const mn = arrMin(vals), r = (arrMax(vals) - mn) || 1;
+  return '<svg class="sp" viewBox="0 0 100 22" preserveAspectRatio="none"><path d="' + vals.map((v, i) => (i ? 'L' : 'M') + (i * 100 / (vals.length - 1)).toFixed(1) + ',' + (19 - (v - mn) / r * 16).toFixed(1)).join('') + '" fill="none" stroke="' + color + '" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>';
+}
+/** a metric: colour dot + name, the value now, the target, the trend of the chosen range */
+function ktile(label, color, value, unit, target, vals, st, sub) {
+  return '<div class="k ' + (st || '') + '"><div class="l"><span class="dot" style="background:' + color + '"></span>' + label + '</div><div class="v">' + value + (unit ? '<small>' + unit + '</small>' : '') + '</div><div class="t">' + (target || '&nbsp;') + '</div>' + (vals ? spark(vals, color) : '') + (sub ? '<div class="s">' + sub + '</div>' : '') + '</div>';
+}
+const legend = (a, w) => '<div class="lg2">' + [['VPD', COL.vpd, a ? fmt(a.vpd, 2) : '—'], ['טמפ׳', COL.temp, a ? fmt(a.temp, 1) + '°' : '—'], ['לחות', COL.rh, a ? fmt(a.rh) + '%' : '—'], ['משקל', COL.w, w != null ? fmt(w) + 'g' : '—'], ['השקיה', COL.irr, '']].map((x) => '<span><i class="dot" style="background:' + x[1] + '"></i>' + x[0] + (x[2] ? ' <b>' + x[2] + '</b>' : '') + '</span>').join('') + '</div>';
+
+/** One chart of everything: VPD, temperature, humidity and the plant weight on one time line (each on its own scale),
+    the green band = the VPD target, blue dots = irrigations, the shaded parts = night. o: {t0,t1,air,wpts,ev,band,height} */
+function multiChart(el, o) {
+  const W = el.clientWidth || 360, H = o.height || 190, L = 30, R = 8, T = 12, B = 18;
+  const X = (t) => L + (t - o.t0) / (o.t1 - o.t0) * (W - L - R);
+  const air = o.air.filter((p) => p.t >= o.t0 && p.t <= o.t1), wp = (o.wpts || []).filter((p) => p.t >= o.t0 && p.t <= o.t1);
+  const rng = (a, pad, lo, hi) => { if (!a.length) return [lo != null ? lo : 0, hi != null ? hi : 1]; let mn = arrMin(a), mx = arrMax(a); if (lo != null) { mn = Math.min(mn, lo); mx = Math.max(mx, hi); } const p = ((mx - mn) || 1) * pad; return [mn - p, mx + p]; };
+  const S = [
+    { c: COL.temp, w: 1.4, pts: air.map((p) => [p.t, p.temp]), r: rng(air.map((p) => p.temp), .3) },
+    { c: COL.rh, w: 1.4, pts: air.map((p) => [p.t, p.rh]), r: rng(air.map((p) => p.rh), .3) },
+    { c: COL.w, w: 1.8, pts: wp.map((p) => [p.t, p.w]), r: rng(wp.map((p) => p.w), .12) },
+    { c: COL.vpd, w: 2.1, pts: air.map((p) => [p.t, p.vpd]), r: rng(air.map((p) => p.vpd), .2, o.band ? o.band[0] : null, o.band ? o.band[1] : null) },
+  ];
+  const Y = (v, r) => T + (1 - (v - r[0]) / (r[1] - r[0])) * (H - T - B), rv = S[3].r;
+  let s = '<svg viewBox="0 0 ' + W + ' ' + H + '" height="' + H + '" style="direction:ltr">';
+  nightBands(o.t0, o.t1).forEach((b) => { const a = Math.max(o.t0, b[0]), z = Math.min(o.t1, b[1]); if (z > a) s += '<rect x="' + X(a).toFixed(1) + '" y="' + T + '" width="' + (X(z) - X(a)).toFixed(1) + '" height="' + (H - T - B) + '" fill="var(--night)"/>'; });
+  if (o.band) s += '<rect x="' + L + '" y="' + Y(o.band[1], rv).toFixed(1) + '" width="' + (W - L - R) + '" height="' + (Y(o.band[0], rv) - Y(o.band[1], rv)).toFixed(1) + '" fill="' + COL.vpd + '" opacity=".10"/>';
+  niceTicks(rv[0], rv[1], 4).forEach((v) => { const y = Y(v, rv).toFixed(1); s += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y + '" y2="' + y + '" stroke="var(--grid)"/><text x="' + (L - 5) + '" y="' + y + '" dy="3.5" text-anchor="end" style="fill:' + COL.vpd + ';opacity:.7">' + fmt(v, 1) + '</text>'; });
+  const spanD = (o.t1 - o.t0) / DAY, stepH = spanD <= 1.2 ? 6 : spanD <= 2.5 ? 12 : 24, every = Math.max(1, Math.ceil(spanD / (W < 500 ? 5 : 10)));
+  const first = new Date(o.t0); first.setMinutes(0, 0, 0); first.setHours(Math.ceil(first.getHours() / stepH) * stepH);
+  for (let t = first.getTime(), k = 0; t <= o.t1; t += stepH * 3600000) { const d = new Date(t); if (stepH === 24 && (k++ % every)) continue; s += '<text x="' + X(t).toFixed(1) + '" y="' + (H - 5) + '" text-anchor="middle">' + (d.getHours() === 0 || stepH === 24 ? dm(t) : hm(t)) + '</text>'; }
+  (o.ev || []).filter((e) => e.peakT >= o.t0 && e.peakT <= o.t1).forEach((e) => { const x = X(e.peakT).toFixed(1); s += '<line x1="' + x + '" x2="' + x + '" y1="' + T + '" y2="' + (H - B) + '" stroke="' + COL.irr + '" stroke-opacity=".3" stroke-dasharray="3 3"/><circle cx="' + x + '" cy="' + (T - 4) + '" r="3.5" fill="' + COL.irr + '"/>'; });
+  S.forEach((se) => { let d = '', prev = null; thin(se.pts, 600).forEach((p) => { if (p[1] == null || !isFinite(p[1])) return; d += (!prev || p[0] - prev > 45 * 60000 ? 'M' : 'L') + X(p[0]).toFixed(1) + ',' + Y(p[1], se.r).toFixed(1); prev = p[0]; }); if (d) s += '<path d="' + d + '" fill="none" stroke="' + se.c + '" stroke-width="' + se.w + '" stroke-linejoin="round"/>'; });
+  s += '<line class="cx" y1="' + T + '" y2="' + (H - B) + '" stroke="var(--muted)" stroke-dasharray="3 3" style="display:none"/><rect x="' + L + '" y="0" width="' + (W - L - R) + '" height="' + H + '" fill="transparent"/></svg><div class="tip" style="display:none"></div>';
+  el.innerHTML = air.length || wp.length ? s : '<p class="muted small" style="padding:30px 0;text-align:center">אין נתונים בטווח הזה</p>';
+  const svg = el.querySelector('svg'); if (!svg) return;
+  const hit = svg.lastChild, cx = svg.querySelector('.cx'), tip = el.querySelector('.tip');
+  const near = (a, t) => { let b = null, bd = Infinity; for (let i = 0; i < a.length; i++) { const d = Math.abs(a[i].t - t); if (d < bd) { bd = d; b = a[i]; } } return bd < 60 * 60000 ? b : null; };
+  const mv = (ev) => {
+    const r = svg.getBoundingClientRect(), px = ((ev.touches ? ev.touches[0].clientX : ev.clientX) - r.left) * W / r.width, t = o.t0 + (px - L) / (W - L - R) * (o.t1 - o.t0), a = near(air, t), w = near(wp, t);
+    if (!a && !w) return; const x = X((a || w).t);
+    cx.setAttribute('x1', x); cx.setAttribute('x2', x); cx.style.display = '';
+    const row = (c, n, v) => '<div><i class="dot" style="background:' + c + '"></i> ' + n + ' <b class="num">' + v + '</b></div>';
+    tip.innerHTML = '<div class="muted small">' + dm((a || w).t) + ' ' + hm((a || w).t) + '</div>' + (a ? row(COL.vpd, 'VPD', fmt(a.vpd, 2)) + row(COL.temp, 'טמפ׳', fmt(a.temp, 1) + '°') + row(COL.rh, 'לחות', fmt(a.rh) + '%') : '') + (w ? row(COL.w, 'משקל', fmt(w.w) + ' g') + (w.db != null ? row(COL.w, 'ייבוש', fmt(w.db, 1) + '%') : '') : '');
+    tip.style.display = ''; tip.style.left = Math.min(r.width - tip.offsetWidth - 4, Math.max(0, x * r.width / W + 12)) + 'px';
+  };
+  const out = () => { cx.style.display = 'none'; tip.style.display = 'none'; };
+  hit.addEventListener('mousemove', mv); hit.addEventListener('touchmove', mv, { passive: true }); hit.addEventListener('touchstart', mv, { passive: true });
+  hit.addEventListener('mouseleave', out); hit.addEventListener('touchend', () => setTimeout(out, 2500));
+}
+/** the time range the charts show, kept in this phone. opts = [[hours, label], ...] */
+function rangeSeg(el, opts, onChange) {
+  let h = store.get('range') || 48; if (!opts.some((o) => o[0] === h)) h = 48;
+  const draw = () => { el.innerHTML = opts.map((o) => '<button class="' + (o[0] === h ? 'on' : '') + '" data-h="' + o[0] + '">' + o[1] + '</button>').join(''); el.querySelectorAll('button').forEach((b) => b.onclick = () => { h = +b.dataset.h; store.set('range', h); draw(); onChange(h); }); };
+  draw(); return () => h;
+}
+/* side rail with the areas – on wide screens, on every page */
+(function () {
+  const pg = (location.pathname.split('/').pop() || 'index.html').toLowerCase(), um = store.get('mgmtUrl');
+  const items = [['🏠', 'בית', 'index.html', ['index.html', '']], ['🗂️', 'ניהול', um || '', []], ['🌱', 'ריבוי', 'prop.html', ['prop.html']], ['🌿', 'גידול', 'batch.html', ['batch.html', 'grow.html', 'photos.html']], ['📦', 'מלאי – בקרוב', '', []], ['💧', 'דישון', 'fert.html', ['fert.html']]];
+  const el = document.createElement('aside'); el.className = 'side';
+  el.innerHTML = '<img src="icon-192.png" alt="">' + items.map((i) => '<a' + (i[2] ? ' href="' + esc(i[2]) + '"' : '') + ' data-t="' + i[1] + '" class="' + (i[3].indexOf(pg) >= 0 ? 'on' : '') + (i[2] ? '' : ' off') + '">' + i[0] + '</a>').join('');
+  document.body.appendChild(el); document.body.classList.add('has-side');
+})();
