@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d0f12">
+<title>ריבוי · BCI</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <a class="icon-btn" href="index.html" aria-label="חזרה" id="back"></a>
+  <div class="t"><h1>ריבוי</h1><div class="sub" id="sub">טוען…</div></div>
+  <button class="icon-btn" id="refresh" aria-label="רענון"></button>
+</header>
+
+<main class="wrap">
+  <section class="grp" style="margin-top:0"><h2>📡 עכשיו בחדר <span class="r" id="when"></span></h2><div class="tiles" id="tiles"></div></section>
+  <div class="links" id="links"></div>
+
+  <div class="grid two" style="margin-top:14px">
+    <div class="card"><h2>🌱 אצוות השרשה <span class="r" id="bCount"></span></h2><div class="list" id="batches" style="margin-top:0"></div></div>
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div class="card"><h2>💧 מגשים שצריכים השקיה <span class="r" id="wCount"></span></h2><div class="list" id="water" style="margin-top:0"></div></div>
+      <div class="card" id="tasksCard"><h2>📋 משימות</h2><div class="list" id="tasks" style="margin-top:0"></div></div>
+    </div>
+  </div>
+  <div class="msg" id="msg"></div>
+</main>
+
+<script src="app.js"></script>
+<script>
+$('refresh').innerHTML = ICON.refresh; $('back').innerHTML = ICON.back;
+function render(j) {
+  const p = j.prop || {}, cl = j.climate, r = p.round, today = dayKey(Date.now());
+  const B = p.batches || [], W = p.water || [], trays = B.reduce((s, b) => s + (b.trays || 0), 0);
+  $('sub').textContent = B.length + ' אצוות פעילות · ' + trays + ' מגשים';
+  $('when').textContent = cl ? ago(Date.parse(cl.at)) + (cl.source ? ' · ' + cl.source : '') : '';
+  $('tiles').innerHTML = [
+    tile('VPD', cl ? fmt(cl.vpd, 2) : '—', 'kPa', '', cl ? vpdState(cl.vpd) : ''),
+    tile('טמפ׳ · לחות', cl ? fmt(cl.temp, 1) + '°' : '—', cl ? fmt(cl.rh) + '%' : '', p.day ? 'היום <span class="num">' + fmt(p.day.tMin, 1) + '–' + fmt(p.day.tMax, 1) + '°</span>' : ''),
+    tile('נשקלו היום', r ? r.weighed : '—', r ? '/ ' + r.active : '', r && r.active ? (r.weighed >= r.active ? 'הסבב הושלם' : 'נשארו ' + (r.active - r.weighed)) : '', r && r.active && r.weighed >= r.active ? 'good' : ''),
+    tile('צריכים השקיה', W.length, '', 'מגשים מעל הסף', W.length ? 'warn' : 'good'),
+  ].join('');
+  $('bCount').textContent = B.length || '';
+  $('batches').innerHTML = B.length ? B.map((b) => {
+    const day = Math.floor((Date.parse(today) - Date.parse(b.first)) / DAY), pct = b.counted ? b.rooted / b.counted * 100 : null;
+    const f = (p.forecasts || []).filter((x) => x.batch === b.name)[0];
+    return '<div class="it"><b>' + esc(b.name.replace(/^Batch /, 'אצווה ')) + '</b><span class="muted small">יום ' + day + ' · ' + b.trays + ' מגשים</span><span class="r">' + (pct != null ? 'השרשה <span class="num">' + fmt(pct) + '%</span>' : 'עוד לא נספר') + (f && f.fc != null ? ' · צפי <span class="num">' + fmt(f.fc) + '%</span>' : '') + '</span></div>';
+  }).join('') : '<p class="muted small" style="margin:0">אין אצוות פעילות</p>';
+  $('wCount').textContent = W.length || '';
+  $('water').innerHTML = W.length ? W.map((w) => '<div class="it"><span class="dot warn"></span>מגש ' + esc(w.tray) + ' <span class="muted small">' + esc(w.place) + '</span><span class="r num">' + fmt(w.db, 1) + '%</span></div>').join('') : '<p class="muted small" style="margin:0">אין מגשים מעל הסף</p>';
+  const T = p.tasks || [];
+  $('tasksCard').hidden = !T.length;
+  $('tasks').innerHTML = T.map((t) => '<div class="it">📋 <span class="small">' + esc(t) + '</span></div>').join('');
+  const ua = store.get('adminUrl'), uw = store.get('workerUrl');
+  $('links').innerHTML = (uw ? '<a class="btn primary" href="' + esc(uw) + '">🧺 פתח סבב שקילה</a>' : '') + (ua ? '<a class="btn" href="' + esc(ua) + '">🌱 ניהול ריבוי (אדמין)</a>' : '') + (!ua || !uw ? '<a class="btn" href="index.html">⚙️ להוספת קישורי האפליקציות – גלגל השיניים בדף הבית</a>' : '');
+}
+async function loadAll() {
+  $('refresh').classList.add('spin'); $('msg').textContent = ''; $('msg').className = 'msg';
+  await cached('hub', 'action=hub', render, (e, had) => { $('msg').textContent = (had ? 'מוצגים הנתונים האחרונים שנשמרו · ' : '') + e.message; $('msg').className = 'msg err'; });
+  $('refresh').classList.remove('spin');
+}
+$('refresh').onclick = loadAll;
+loadAll();
+setInterval(() => { if (!document.hidden) loadAll(); }, 5 * 60000);
+</script>
+</body>
+</html>
