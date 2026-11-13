@@ -21,21 +21,32 @@
 </header>
 
 <main class="wrap">
-  <!-- 1. what needs attention now -->
-  <div class="alerts" id="alerts"></div>
+  <div id="alerts"></div>
 
-  <!-- 2. live metrics -->
-  <section class="grp"><h2>🌿 חדר גידול <span class="r" id="gSub"></span></h2><div class="tiles" id="gTiles"></div></section>
-  <section class="grp"><h2>🌱 ריבוי <span class="r" id="pSub"></span></h2><div class="tiles" id="pTiles"></div></section>
+  <!-- grow room: the metrics now with their trend -->
+  <a class="room" href="batch.html">
+    <div class="rt"><span class="dot" id="gDot"></span><b>חדר פריחה</b><span id="gSub"></span><span class="fl"></span><span class="pill" id="gPill" hidden></span></div>
+    <div class="kp" id="gTiles"></div>
+  </a>
+  <!-- one chart of everything -->
+  <div class="room">
+    <div class="rt"><b id="cTitle">48 שעות אחרונות</b><span class="fl"></span><span class="seg rng" id="rng"></span></div>
+    <div id="lg"></div>
+    <div class="chart" id="big"></div>
+  </div>
+  <!-- propagation -->
+  <a class="room" href="prop.html">
+    <div class="rt"><span class="dot" id="pDot"></span><b>ריבוי</b><span id="pSub"></span></div>
+    <div class="kp" id="pTiles"></div>
+  </a>
 
-  <!-- 3. where to go -->
-  <section class="grp"><h2>אזורים</h2>
+  <section class="grp only-m"><h2>אזורים</h2>
     <nav class="caro" id="caro">
-      <a id="cMgmt" style="--c:#d4a820"><span class="ic">🗂️</span><b>ניהול</b><small id="cMgmtS">CannaFlow</small></a>
-      <a href="prop.html" style="--c:#5090e0"><span class="ic">🌱</span><b>ריבוי</b><small id="cPropS">אמהות ומגשי השרשה</small></a>
-      <a href="batch.html" style="--c:#5ec98a"><span class="ic">🌿</span><b>גידול</b><small id="cGrow">האצווה בחדר הפריחה</small></a>
-      <a class="soon" style="--c:#a89be8"><span class="ic">📦</span><b>מלאי</b><small>בקרוב</small></a>
-      <a href="fert.html" style="--c:#1f9e8f"><span class="ic">💧</span><b>דישון</b><small>מחשבון הזרקה ותוכניות</small></a>
+      <a id="cMgmt" style="--c:#f5b942"><span class="ic">🗂️</span><b>ניהול</b><small id="cMgmtS">CannaFlow</small></a>
+      <a href="prop.html" style="--c:#3b8cff"><span class="ic">🌱</span><b>ריבוי</b><small id="cPropS">אמהות ומגשים</small></a>
+      <a href="batch.html" style="--c:#3ddc97"><span class="ic">🌿</span><b>גידול</b><small id="cGrow">האצווה בפריחה</small></a>
+      <a class="soon" style="--c:#9d8cff"><span class="ic">📦</span><b>מלאי</b><small>בקרוב</small></a>
+      <a href="fert.html" style="--c:#22c3e6"><span class="ic">💧</span><b>דישון</b><small>מחשבון ותוכניות</small></a>
     </nav>
   </section>
   <div class="msg" id="msg"></div>
@@ -56,37 +67,49 @@
 <script src="app.js"></script>
 <script>
 $('refresh').innerHTML = ICON.refresh; $('settings').innerHTML = ICON.gear;
-const S = { grow: null, hub: null, photoAt: null };       // the last answers – the alerts are built from all of them together
+const S = { grow: null, hub: null, clim: null, photoAt: null };       // the last answers – the alerts are built from all of them together
 const MIN = 60000, old = (t, m) => t == null || Date.now() - t > m * MIN;
+const getRange = rangeSeg($('rng'), [[24, '24 שע׳'], [48, 'יומיים'], [168, '7 ימים']], () => loadAll());
 
 function renderGrow(j) {
   S.grow = j;
-  const c = j.cycle || {}, P = plantNow(j.points || [], c), d = cycleDay(c, Date.now()), a = P.airNow;
+  const c = j.cycle || {}, P = plantNow(j.points || [], c), a = P.airNow, po = phaseOf(c), ph = po && po.ph, h = getRange(), t1 = Date.now(), t0 = t1 - h * 3600000;
   S.P = P;
-  $('gSub').textContent = (c.name || '') + (d ? (c.name ? ' · ' : '') + 'יום ' + d : '');
-  const vs = a ? vpdState(a.vpd) : '', dbc = P.db >= P.lim ? 'bad' : P.db >= P.lim * .8 ? 'warn' : '';
-  const eta = P.eta == null ? '—' : P.eta === 0 ? 'עכשיו' : P.eta < 48 ? hm(P.t + P.eta * 3600000) : '> יומיים';
+  const fresh = a && !old(a.t, 30), air = P.air.filter((p) => p.t >= t0), wp = P.A.pts.filter((p) => p.t >= t0);
+  $('gSub').textContent = [c.name, po ? 'יום ' + po.day : ''].filter(Boolean).join(' · ');
+  $('gPill').hidden = !ph; if (ph) $('gPill').textContent = ph.en;
+  const dbT = ph ? ph.db : [P.lim * .8, P.lim], dbs = P.db == null ? 'off' : P.db > dbT[1] ? 'bad' : '';
+  const st = [fresh && ph ? band(a.vpd, ph.vpd, .15) : fresh ? ({ bad: 'bad', warn: 'warn' }[vpdState(a.vpd)] || '') : 'off', fresh && ph ? band(a.temp, ph.temp, 1.5) : fresh ? '' : 'off', fresh && ph ? band(a.rh, ph.rh, 5) : fresh ? '' : 'off', dbs];
+  $('gDot').style.background = st.indexOf('bad') >= 0 ? 'var(--red)' : st.indexOf('warn') >= 0 || !fresh ? 'var(--amber)' : 'var(--green)';
+  const eta = P.eta == null ? '' : P.eta === 0 ? 'להשקות עכשיו' : P.eta < 48 ? 'השקיה ~' + hm(P.t + P.eta * 3600000) : '';
   $('gTiles').innerHTML = [
-    tile('VPD', a ? fmt(a.vpd, 2) : '—', 'kPa', a ? ago(a.t) : 'אין נתון', vs),
-    tile('טמפ׳ · לחות', a ? fmt(a.temp, 1) + '°' : '—', a ? fmt(a.rh) + '%' : '', ''),
-    tile('ייבוש', fmt(P.db, 1), '%', 'סף ' + P.lim + '%', dbc, '<div class="bar ' + dbc + '"><i style="width:' + Math.max(0, Math.min(100, (P.db || 0) / P.lim * 100)) + '%"></i></div>'),
-    tile('השקיה הבאה', eta, '', P.w != null ? '<span class="num">' + fmt(P.w) + ' g</span>' : ''),
+    ktile('VPD', COL.vpd, fresh ? fmt(a.vpd, 2) : '—', 'kPa', ph ? ph.vpd[0] + '–' + ph.vpd[1] : '', air.map((p) => p.vpd), st[0], fresh ? '' : 'לא מדווח' + (a ? ' · ' + ago(a.t) : '')),
+    ktile('טמפ׳', COL.temp, fresh ? fmt(a.temp, 1) : '—', '°C', ph ? ph.temp[0] + '–' + ph.temp[1] : '', air.map((p) => p.temp), st[1]),
+    ktile('לחות', COL.rh, fresh ? fmt(a.rh) : '—', '%', ph ? ph.rh[0] + '–' + ph.rh[1] : '', air.map((p) => p.rh), st[2]),
+    ktile('ייבוש', COL.w, P.db != null ? fmt(P.db, 1) : '—', '%', dbT[0] + '–' + dbT[1], wp.map((p) => p.db), dbs, eta),
   ].join('');
-  $('cGrow').textContent = (c.name || 'האצווה בחדר הפריחה') + (d ? ' · יום ' + d : '');
+  $('cTitle').textContent = h === 24 ? '24 שעות אחרונות' : h === 48 ? '48 שעות אחרונות' : '7 ימים אחרונים';
+  $('lg').innerHTML = legend(fresh ? a : null, P.w);
+  multiChart($('big'), { t0, t1, air: P.air, wpts: P.A.pts, ev: P.A.ev, band: ph ? ph.vpd : [0.8, 1.5], height: window.innerWidth >= 900 ? 280 : 190 });
+  $('cGrow').textContent = [c.name || 'האצווה בפריחה', po ? 'יום ' + po.day : ''].filter(Boolean).join(' · ');
   alerts();
 }
 function renderProp(j) {
-  S.hub = j;
-  const p = j.prop || {}, cl = j.climate, r = p.round;
-  const trays = (p.batches || []).reduce((s, b) => s + (b.trays || 0), 0);
-  $('pSub').textContent = (p.batches || []).length + ' אצוות · ' + trays + ' מגשים';
+  if (j.prop) S.hub = j; else S.clim = j;
+  const hub = S.hub; if (!hub) return;
+  const p = hub.prop || {}, cl = hub.climate, r = p.round, W = (p.water || []).length;
+  const trays = (p.batches || []).reduce((s, b) => s + (b.trays || 0), 0), t0 = Date.now() - 48 * 3600000;
+  const cp = ((S.clim && S.clim.points) || []).filter((x) => Date.parse(x.at) >= t0), fresh = cl && !old(Date.parse(cl.at), 90);
+  $('pSub').textContent = (p.batches || []).length + ' אצוות · ' + trays + ' מגשים' + (cl && cl.source ? ' · ' + cl.source : '');
+  const vs = fresh ? ({ bad: 'bad', warn: 'warn' }[vpdState(cl.vpd)] || '') : 'off';
+  $('pDot').style.background = vs === 'bad' ? 'var(--red)' : vs || W ? 'var(--amber)' : 'var(--green)';
   $('pTiles').innerHTML = [
-    tile('VPD', cl ? fmt(cl.vpd, 2) : '—', 'kPa', cl ? ago(Date.parse(cl.at)) + (cl.source ? ' · ' + cl.source : '') : 'אין נתון', cl ? vpdState(cl.vpd) : ''),
-    tile('טמפ׳ · לחות', cl ? fmt(cl.temp, 1) + '°' : '—', cl ? fmt(cl.rh) + '%' : '', ''),
-    tile('נשקלו היום', r ? r.weighed : '—', r ? '/ ' + r.active : '', r && r.active ? (r.weighed >= r.active ? 'הסבב הושלם' : 'נשארו ' + (r.active - r.weighed)) : '', r && r.active && r.weighed >= r.active ? 'good' : ''),
-    tile('צריכים השקיה', (p.water || []).length, '', 'מגשים מעל הסף', (p.water || []).length ? 'warn' : 'good'),
+    ktile('VPD', COL.vpd, fresh ? fmt(cl.vpd, 2) : '—', 'kPa', '0.8–1.5', cp.map((x) => x.vpd), vs, cl ? ago(Date.parse(cl.at)) : 'אין נתון'),
+    ktile('טמפ׳ · לחות', COL.temp, fresh ? fmt(cl.temp, 1) + '°' : '—', fresh ? '· ' + fmt(cl.rh) + '%' : '', '', cp.map((x) => x.temp), fresh ? '' : 'off'),
+    ktile('נשקלו היום', COL.irr, r ? r.weighed : '—', r ? '/ ' + r.active : '', '', null, '', r && r.active ? (r.weighed >= r.active ? 'הסבב הושלם' : 'נשארו ' + (r.active - r.weighed)) : ''),
+    ktile('צריכים השקיה', COL.w, W, '', '', null, W ? 'warn' : '', 'מגשים מעל הסף'),
   ].join('');
-  $('cPropS').textContent = (p.batches || []).length + ' אצוות · ' + trays + ' מגשים';
+  $('cPropS').textContent = trays + ' מגשים' + (W ? ' · ' + W + ' להשקות' : '');
   links(); alerts();
 }
 async function renderPhoto(gp) {
@@ -96,27 +119,23 @@ async function renderPhoto(gp) {
   alerts();
 }
 
-/* what needs attention, the most urgent first */
+/* what needs attention, the most urgent first (shown only when there is something) */
 function alerts() {
   const A = [], P = S.P, h = S.hub;
   if (P) {
-    if (P.db != null && P.db >= P.lim) A.push(['bad', '💧 חדר גידול: ייבוש ' + fmt(P.db, 1) + '% – הגיע הזמן להשקות', 'batch.html']);
-    if (old(P.t, 30)) A.push(['bad', '⚖️ המשקל בחדר הגידול לא מדווח' + (P.t ? ' (' + ago(P.t) + ')' : ''), 'grow.html']);
+    if (P.db != null && P.db >= P.lim) A.push(['bad', '💧 חדר פריחה: ייבוש ' + fmt(P.db, 1) + '% – להשקות', 'batch.html']);
+    if (old(P.t, 30)) A.push(['bad', '⚖️ המשקל בחדר הפריחה לא מדווח' + (P.t ? ' · ' + ago(P.t) : ''), 'grow.html']);
     const a = P.airNow;
-    if (!a || old(a.t, 30)) A.push(['', '🌡️ חיישן האוויר בחדר הגידול לא מדווח' + (a ? ' (' + ago(a.t) + ')' : ''), 'grow.html']);
-    else if (vpdState(a.vpd) === 'bad') A.push(['', '🌡️ VPD בחדר הגידול מחוץ לטווח: ' + fmt(a.vpd, 2) + ' kPa', 'batch.html']);
+    if (!a || old(a.t, 30)) A.push(['', '🌡️ חיישן האוויר בחדר הפריחה לא מדווח' + (a ? ' · ' + ago(a.t) : ''), 'grow.html']);
   }
-  if (S.photoKnown && old(S.photoAt, 120)) A.push(['', '📷 המצלמות לא מעלות תמונות' + (S.photoAt ? ' – אחרונה ' + ago(S.photoAt) : ''), 'photos.html']);
+  if (S.photoKnown && old(S.photoAt, 120)) A.push(['', '📷 המצלמות לא מעלות תמונות' + (S.photoAt ? ' · ' + ago(S.photoAt) : ''), 'photos.html']);
   if (h) {
     const w = (h.prop && h.prop.water || []).length, cl = h.climate;
     if (w) A.push(['', '🌱 ' + w + ' מגשים בריבוי צריכים השקיה', 'prop.html']);
-    if (!cl || old(Date.parse(cl.at), 90)) A.push(['', '🌡️ אין נתוני אקלים עדכניים מהריבוי', '']);
-    else if (vpdState(cl.vpd) === 'bad') A.push(['', '🌡️ VPD בריבוי מחוץ לטווח: ' + fmt(cl.vpd, 2) + ' kPa', '']);
+    if (!cl || old(Date.parse(cl.at), 90)) A.push(['', '🌡️ אין נתוני אקלים עדכניים מהריבוי', 'prop.html']);
   }
   A.sort((x, y) => (y[0] === 'bad') - (x[0] === 'bad'));
-  $('alerts').innerHTML = A.length
-    ? A.map((x) => '<a class="alert ' + x[0] + '"' + (x[2] ? ' href="' + esc(x[2]) + '"' : '') + '>' + esc(x[1]) + (x[2] ? '<span class="go">‹</span>' : '') + '</a>').join('')
-    : '';
+  $('alerts').innerHTML = A.map((x) => '<a class="al ' + x[0] + '" href="' + esc(x[2]) + '">' + esc(x[1]) + '<span class="go">‹</span></a>').join('');
 }
 
 /* links kept in this phone */
@@ -133,8 +152,9 @@ async function loadAll() {
   $('refresh').classList.add('spin'); $('msg').textContent = ''; $('msg').className = 'msg';
   const err = (e, had) => { $('msg').textContent = (had ? 'מוצגים הנתונים האחרונים שנשמרו · ' : '') + e.message; $('msg').className = 'msg err'; };
   await Promise.all([
-    cached('grow3', 'action=grow&days=3', renderGrow, err),
+    getRange() > 48 ? cached('grow7', 'action=grow&days=7', renderGrow, err) : cached('grow3', 'action=grow&days=3', renderGrow, err),
     cached('hub', 'action=hub', renderProp, err),
+    cached('clim3', 'action=climate&days=3', renderProp, () => {}),
     cached('growphotos', 'action=growphotos&days=7', renderPhoto, err),
   ]);
   $('sub').textContent = 'עודכן ' + hm(Date.now());
@@ -143,6 +163,7 @@ async function loadAll() {
 links();
 $('refresh').onclick = loadAll;
 loadAll();
+let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { if (S.grow) renderGrow(S.grow); }, 200); });
 setInterval(() => { if (!document.hidden) loadAll(); }, 5 * 60000);
 </script>
 </body>
