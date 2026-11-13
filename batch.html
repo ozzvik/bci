@@ -12,11 +12,11 @@
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 <style>
-  .pill { font-size: 12px; font-weight: 700; color: var(--green); background: color-mix(in srgb, var(--green) 14%, transparent); border: 1px solid color-mix(in srgb, var(--green) 32%, var(--line)); padding: 6px 11px; border-radius: 20px; white-space: nowrap; }
   .tile .tg { font-size: 11.5px; color: var(--faint); margin-top: 2px; unicode-bidi: plaintext; }
   .tile .st { position: absolute; top: 11px; inset-inline-end: 12px; font-size: 13px; font-weight: 800; }
   .tile.good .st { color: var(--green); } .tile.warn .st { color: var(--amber); } .tile.bad .st { color: var(--red); } .tile.off .v, .tile.off .st { color: var(--faint); }
-  .fertc { border-color: color-mix(in srgb, #1f9e8f 35%, var(--line)); background: linear-gradient(160deg, color-mix(in srgb, #1f9e8f 10%, transparent), var(--card)); display: block; }
+  .fertc { border-color: color-mix(in srgb, var(--cyan) 30%, var(--line)); }
+  .task { background: var(--card2) !important; }
   .task { display: flex; align-items: center; gap: 10px; background: var(--card); border: 1px solid var(--line); border-inline-start: 3px solid var(--violet); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; cursor: pointer; }
   .task .cb { width: 22px; height: 22px; border-radius: 7px; border: 1.5px solid var(--muted); flex: none; display: grid; place-items: center; font-size: 13px; color: #06210f; }
   .task.done .cb { background: var(--green-d); border-color: var(--green-d); color: #fff; } .task.done b { color: var(--muted); text-decoration: line-through; }
@@ -47,26 +47,29 @@
   </div>
 
   <div id="main" hidden>
-    <div class="phases" id="phases"></div>
-    <div class="grid two" style="margin-top:12px">
-      <div style="display:flex;flex-direction:column;gap:14px">
-        <section class="grp" style="margin-top:0"><h2>📊 חי מול יעד השלב <span class="r" id="when"></span></h2><div class="tiles" id="live"></div></section>
-        <a class="card fertc" id="fertCard" href="fert.html">
-          <h2>💧 דישון לשלב <span class="r" id="fEC"></span></h2>
-          <div class="chips" id="fChips"></div>
-          <div class="small" style="margin-top:10px;color:#4fd2c2;font-weight:700">ל׳ לקוב מים · פתח במחשבון ‹</div>
-        </a>
-        <section class="grp" style="margin-top:0"><h2>📋 משימות השלב <span class="r" id="tCount"></span></h2>
-          <div id="tasks"></div>
-          <div class="form" style="margin-top:8px"><input id="tNew" placeholder="משימה חדשה לשלב הזה" style="flex:1"><input id="tWho" placeholder="מי" style="width:76px"><button class="btn" id="tAdd">הוסף</button></div>
-        </section>
+    <div class="phasebar" id="phases"></div>
+    <div class="kp" id="live" style="--n:6;margin-bottom:12px"></div>
+    <div class="g2">
+      <div class="room" style="margin:0">
+        <div class="rt"><b>חי מול יעד השלב</b><span id="when"></span><span class="fl"></span><span class="seg rng" id="rng"></span></div>
+        <div id="lg"></div>
+        <div class="chart" id="big"></div>
+        <div class="muted small" style="margin-top:4px">הפס הירוק = טווח היעד ל-VPD בשלב · נקודות כחולות = השקיות</div>
       </div>
-      <div style="display:flex;flex-direction:column;gap:14px">
-        <div class="photo" id="photo"><div class="empty">אין תמונה</div></div>
-        <div class="links" style="margin-top:0">
-          <a class="btn" href="grow.html">📈 גרפים</a><a class="btn" href="photos.html">🎬 תמונות וטיימלאפס</a><button class="btn" id="edit">✏️ פרטי האצווה</button>
+      <div>
+        <a class="room fertc" id="fertCard" href="fert.html">
+          <div class="rt"><b>💧 דישון לשלב</b><span class="fl"></span><span id="fEC"></span></div>
+          <div class="chips" id="fChips"></div>
+          <div class="small" style="margin-top:9px;color:var(--cyan);font-weight:700">ל׳ לקוב מים · פתח במחשבון ‹</div>
+        </a>
+        <div class="room">
+          <div class="rt"><b>📋 משימות השלב</b><span class="fl"></span><span id="tCount"></span></div>
+          <div id="tasks"></div>
+          <div class="form" style="margin-top:8px"><input id="tNew" placeholder="משימה חדשה לשלב הזה" style="flex:1"><input id="tWho" placeholder="מי" style="width:70px"><button class="btn" id="tAdd">הוסף</button></div>
         </div>
-        <p class="muted small" id="note"></p>
+        <div class="photo" id="photo"><div class="empty">אין תמונה</div></div>
+        <div class="links"><a class="btn" href="grow.html">📈 גרפים מפורטים</a><a class="btn" href="photos.html">🎬 תמונות</a><button class="btn" id="edit">✏️ פרטי האצווה</button></div>
+        <p class="muted small" id="note" style="margin-top:10px"></p>
       </div>
     </div>
   </div>
@@ -77,44 +80,34 @@
 <script>
 $('refresh').innerHTML = ICON.refresh; $('back').innerHTML = ICON.back;
 
-/* The recipe: the phases of flowering by week, with the targets of each phase.
-   id = the fertigation program of that phase (fert.html). Climate and dryback bands are starting values – change them here. */
-const RECIPE = [
-  { id: 'veg',      name: 'צימוח',   en: 'Veg',      from: 1, to: 2, vpd: [0.8, 1.1], temp: [24, 28], rh: [60, 70], db: [10, 15] },
-  { id: 'stretch',  name: 'מתיחה',   en: 'Stretch',  from: 3, to: 3, vpd: [1.0, 1.2], temp: [24, 28], rh: [55, 65], db: [12, 18] },
-  { id: 'bulking',  name: 'Bulking', en: 'Bulking',  from: 4, to: 6, vpd: [1.1, 1.4], temp: [24, 27], rh: [50, 60], db: [15, 20] },
-  { id: 'ripening', name: 'הבשלה',   en: 'Ripening', from: 7, to: 8, vpd: [1.2, 1.5], temp: [22, 26], rh: [45, 55], db: [18, 25] },
-  { id: 'flush',    name: 'שטיפה',   en: 'Flush',    from: 9, to: 99, vpd: [1.2, 1.5], temp: [20, 25], rh: [45, 55], db: [18, 25] },
-];
 let G = null, F = null, GP = null, T = null, PH = null;
-
-const band = (v, b, soft) => v == null || !isFinite(v) ? 'off' : v >= b[0] && v <= b[1] ? 'good' : v >= b[0] - soft && v <= b[1] + soft ? 'warn' : 'bad';
-const mark = { good: '✓', warn: '!', bad: '✕', off: '⌛' };
-function ltile(label, value, unit, target, st, sub) {
-  return '<div class="tile ' + st + '"><div class="st">' + mark[st] + '</div><div class="l">' + label + '</div><div class="v">' + value + (unit ? '<small>' + unit + '</small>' : '') + '</div><div class="tg">יעד ' + target + '</div><div class="s">' + (sub || '') + '</div></div>';
-}
+const getRange = rangeSeg($('rng'), [[24, '24 שע׳'], [48, 'יומיים'], [168, '7 ימים'], [720, '30 יום']], () => loadAll());
 
 function render() {
   if (!G) return;
-  const c = G.cycle || {}, day = cycleDay(c, Date.now());
+  const c = G.cycle || {}, po = phaseOf(c);
   $('title').textContent = c.name || 'אצווה';
-  if (!c.start || !day || day < 1) { $('setup').hidden = false; $('main').hidden = true; $('pill').hidden = true; $('sub').textContent = 'חסר תאריך תחילת פריחה'; $('sName').value = c.name || ''; $('sStart').value = c.start || ''; return; }
+  if (!po) { $('setup').hidden = false; $('main').hidden = true; $('pill').hidden = true; $('sub').textContent = 'חסר תאריך תחילת פריחה'; $('sName').value = c.name || ''; $('sStart').value = c.start || ''; return; }
   $('setup').hidden = true; $('main').hidden = false;
-  const week = Math.floor((day - 1) / 7) + 1, ph = RECIPE.find((p) => week >= p.from && week <= p.to) || RECIPE[RECIPE.length - 1];
-  $('sub').textContent = 'חדר פריחה · יום ' + day + ' · שבוע ' + week;
+  const ph = po.ph, week = po.week;
+  $('sub').textContent = 'חדר פריחה · יום ' + po.day + ' · שבוע ' + week;
   PH = ph; $('pill').textContent = ph.en; $('pill').hidden = false;
-  $('phases').innerHTML = RECIPE.map((p) => '<div class="' + (p === ph ? 'on' : week > p.to ? 'done' : '') + '"><i></i>' + p.name + '</div>').join('');
+  $('phases').innerHTML = RECIPE.map((p) => '<div style="flex:' + (Math.min(p.to, 9) - p.from + 1) + '" class="' + (p === ph ? 'on' : week > p.to ? 'done' : '') + '">' + p.name + (p === ph ? ' · שבוע ' + week : '') + '</div>').join('');
 
   const P = plantNow(G.points || [], c), a = P.airNow, fresh = a && Date.now() - a.t < 30 * 60000;
+  const h = getRange(), t1 = Date.now(), t0 = t1 - h * 3600000, air = P.air.filter((p) => p.t >= t0), wp = P.A.pts.filter((p) => p.t >= t0);
   $('when').textContent = a ? 'עודכן ' + ago(a.t) : '';
+  const eta = P.db == null ? '' : P.db > ph.db[1] ? 'מעל היעד – להשקות' : P.db >= ph.db[0] ? 'בטווח – אפשר להשקות' : P.eta != null && P.eta > 0 && P.eta < 48 ? 'השקיה ~' + hm(P.t + P.eta * 3600000) : '';
   $('live').innerHTML = [
-    ltile('VPD', fresh ? fmt(a.vpd, 2) : '—', 'kPa', ph.vpd[0] + '–' + ph.vpd[1], fresh ? band(a.vpd, ph.vpd, 0.15) : 'off', fresh ? '' : 'החיישן לא מדווח'),
-    ltile('ייבוש (דרייבק)', P.db != null ? fmt(P.db, 1) : '—', '%', ph.db[0] + '–' + ph.db[1] + '% לפני השקיה', P.db == null ? 'off' : P.db > ph.db[1] ? 'bad' : P.db >= ph.db[0] ? 'warn' : 'good', P.db == null ? '' : P.db > ph.db[1] ? 'מעל היעד – להשקות' : P.db >= ph.db[0] ? 'בטווח היעד – אפשר להשקות' : P.eta != null && P.eta > 0 && P.eta < 48 ? 'השקיה צפויה ' + hm(P.t + P.eta * 3600000) : 'עוד לא הגיע ליעד'),
-    ltile('טמפרטורה', fresh ? fmt(a.temp, 1) + '°' : '—', '', ph.temp[0] + '–' + ph.temp[1] + '°', fresh ? band(a.temp, ph.temp, 1.5) : 'off'),
-    ltile('לחות', fresh ? fmt(a.rh) : '—', '%', ph.rh[0] + '–' + ph.rh[1] + '%', fresh ? band(a.rh, ph.rh, 5) : 'off'),
-    ltile('משקל הצמח', P.w != null ? fmt(P.w) : '—', 'g', 'מלא ' + (P.full ? fmt(P.full) + ' g' : '—'), P.w != null ? 'good' : 'off', P.speed != null ? '<span class="num">' + fmt(P.speed) + ' g/h</span>' : ''),
-    ltile('EC מצע', '—', '', 'ייקבע עם החיישן', 'off', 'אין חיישן מצע עדיין'),
+    ktile('VPD', COL.vpd, fresh ? fmt(a.vpd, 2) : '—', 'kPa', ph.vpd[0] + '–' + ph.vpd[1], air.map((p) => p.vpd), fresh ? band(a.vpd, ph.vpd, .15) : 'off', fresh ? '' : 'החיישן לא מדווח'),
+    ktile('טמפ׳', COL.temp, fresh ? fmt(a.temp, 1) : '—', '°C', ph.temp[0] + '–' + ph.temp[1], air.map((p) => p.temp), fresh ? band(a.temp, ph.temp, 1.5) : 'off'),
+    ktile('לחות', COL.rh, fresh ? fmt(a.rh) : '—', '%', ph.rh[0] + '–' + ph.rh[1], air.map((p) => p.rh), fresh ? band(a.rh, ph.rh, 5) : 'off'),
+    ktile('ייבוש', COL.w, P.db != null ? fmt(P.db, 1) : '—', '%', ph.db[0] + '–' + ph.db[1], wp.map((p) => p.db), P.db == null ? 'off' : P.db > ph.db[1] ? 'bad' : '', eta),
+    ktile('EC מצע', COL.rh, '—', '', '', null, 'off', 'אין חיישן מצע עדיין'),
+    ktile('משקל', COL.w, P.w != null ? fmt(P.w) : '—', 'g', P.full ? 'מלא ' + fmt(P.full) : '', wp.map((p) => p.w), P.w != null ? '' : 'off', P.speed != null ? fmt(P.speed) + ' g/h' : ''),
   ].join('');
+  $('lg').innerHTML = legend(fresh ? a : null, P.w);
+  multiChart($('big'), { t0, t1, air: P.air, wpts: P.A.pts, ev: P.A.ev, band: ph.vpd, height: window.innerWidth >= 900 ? 300 : 200 });
 
   // fertigation of this phase (the program with the same id in the calculator)
   const pr = F && (F.programs || []).find((p) => p.id === ph.id);
@@ -158,7 +151,7 @@ $('tNew').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('tAdd').
 async function saveCycle(name, start) {
   const c = Object.assign({}, G.cycle, { name, start });
   await apiPost({ action: 'setgrowcycle', cycle: c });
-  G.cycle = c; store.set('grow3', G); render();
+  G.cycle = c; render();
 }
 $('sSave').onclick = async () => { const s = $('sStart').value; if (!s) { $('msg').textContent = 'בחר תאריך תחילת פריחה'; return; } try { await saveCycle($('sName').value.trim(), s); $('msg').textContent = ''; } catch (e) { $('msg').textContent = e.message; $('msg').className = 'msg err'; } };
 $('edit').onclick = () => { $('sName').value = G.cycle.name || ''; $('sStart').value = G.cycle.start || ''; $('setup').hidden = false; $('setup').scrollIntoView({ behavior: 'smooth' }); };
@@ -167,7 +160,7 @@ async function loadAll() {
   $('refresh').classList.add('spin');
   const err = (e, had) => { $('msg').textContent = (had ? 'מוצגים הנתונים האחרונים שנשמרו · ' : '') + e.message; $('msg').className = 'msg err'; };
   await Promise.all([
-    cached('grow3', 'action=grow&days=3', (j) => { G = j; render(); }, err),
+    (() => { const h = getRange(), cb = (j) => { G = j; render(); }; return h > 168 ? api('action=grow&days=30').then(cb).catch((e) => err(e, false)) : h > 48 ? cached('grow7', 'action=grow&days=7', cb, err) : cached('grow3', 'action=grow&days=3', cb, err); })(),
     cached('batchsrv', 'action=batch', (j) => { T = j; tasks(); }, () => {}),
     cached('fertsrv', 'action=fert', (j) => { F = j; render(); }, () => {}),
     cached('growphotos', 'action=growphotos&days=7', (j) => { GP = j; render(); }, () => {}),
@@ -176,6 +169,7 @@ async function loadAll() {
 }
 $('refresh').onclick = loadAll;
 loadAll();
+let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(render, 200); });
 setInterval(() => { if (!document.hidden) loadAll(); }, 5 * 60000);
 </script>
 </body>
