@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0d1210">
+<meta name="theme-color" content="#0d0f12">
 <title>BCI</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -20,41 +20,35 @@
   <button class="icon-btn" id="refresh" aria-label="רענון"></button>
 </header>
 
-<nav class="wrap nav" id="nav" style="padding-bottom:0">
-  <a href="grow.html"><span class="ic">🌿</span><span>חדר גידול<small>גרפים ונתונים</small></span></a>
-  <a href="photos.html"><span class="ic">🎬</span><span>תמונות וטיימלאפס<small>לפי תאריך ושעה</small></span></a>
-  <a href="fert.html"><span class="ic">💧</span><span>דישון<small>מחשבון הזרקה</small></span></a>
-  <a id="nWorker" class="off"><span class="ic">🧺</span><span>סבב שקילה<small>אפליקציית העובד</small></span></a>
-  <a id="nAdmin" class="off"><span class="ic">🌱</span><span>ניהול ריבוי<small>דף האדמין</small></span></a>
-</nav>
-<main class="wrap grid two">
-  <!-- grow room -->
-  <a class="card room" href="grow.html" id="growCard">
-    <div class="head"><div class="ic">🌿</div><div><h3>חדר גידול</h3><div class="sub" id="gSub">—</div></div><div class="go">‹</div></div>
-    <div class="thumb" id="gThumb"></div>
-    <div class="body"><div class="tiles" id="gTiles"></div></div>
-  </a>
+<main class="wrap">
+  <!-- 1. what needs attention now -->
+  <div class="alerts" id="alerts"></div>
 
-  <!-- propagation -->
-  <div class="card room" id="propCard">
-    <div class="head"><div class="ic">🌱</div><div><h3>ריבוי</h3><div class="sub" id="pSub">—</div></div></div>
-    <div class="body">
-      <div class="tiles" id="pTiles"></div>
-      <div id="pBatches" class="list"></div>
-      <div id="pWater" class="list"></div>
-      <div id="pTasks" class="list"></div>
-      <div class="links" id="pLinks"></div>
-    </div>
-  </div>
+  <!-- 2. live metrics -->
+  <section class="grp"><h2>🌿 חדר גידול <span class="r" id="gSub"></span></h2><div class="tiles" id="gTiles"></div></section>
+  <section class="grp"><h2>🌱 ריבוי <span class="r" id="pSub"></span></h2><div class="tiles" id="pTiles"></div></section>
+
+  <!-- 3. where to go -->
+  <section class="grp"><h2>אזורים</h2>
+    <nav class="caro" id="caro">
+      <a id="cMgmt" style="--c:#d4a820"><span class="ic">🗂️</span><b>ניהול</b><small id="cMgmtS">CannaFlow</small></a>
+      <a href="prop.html" style="--c:#5090e0"><span class="ic">🌱</span><b>ריבוי</b><small id="cPropS">אמהות ומגשי השרשה</small></a>
+      <a href="batch.html" style="--c:#5ec98a"><span class="ic">🌿</span><b>גידול</b><small id="cGrow">האצווה בחדר הפריחה</small></a>
+      <a class="soon" style="--c:#a89be8"><span class="ic">📦</span><b>מלאי</b><small>בקרוב</small></a>
+      <a href="fert.html" style="--c:#1f9e8f"><span class="ic">💧</span><b>דישון</b><small>מחשבון הזרקה ותוכניות</small></a>
+    </nav>
+  </section>
+  <div class="msg" id="msg"></div>
 </main>
-<div class="wrap"><div class="msg" id="msg"></div></div>
 
 <dialog id="dlg" style="border:1px solid var(--line);border-radius:18px;background:var(--card);color:var(--ink);max-width:520px;width:calc(100% - 32px)">
   <form method="dialog">
-    <h3 style="margin-top:0">קישורים לאפליקציות הריבוי</h3>
-    <p class="muted small">הדבק את הקישורים שבהם אתה פותח היום את דף הניהול ואת אפליקציית העובד. הם נשמרים רק בטלפון הזה.</p>
-    <label class="small">דף ניהול (אדמין)<br><input id="uAdmin" dir="ltr" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--card2);color:var(--ink)"></label><br><br>
-    <label class="small">אפליקציית העובד (סבב)<br><input id="uWorker" dir="ltr" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--card2);color:var(--ink)"></label>
+    <h3 style="margin-top:0">קישורים לאפליקציות</h3>
+    <p class="muted small">הדבק את הקישורים שבהם אתה פותח את האפליקציות. הם נשמרים רק במכשיר הזה.</p>
+    <style>#dlg input{width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--card2);color:var(--ink);margin-bottom:12px}</style>
+    <label class="small">דף ניהול ריבוי (אדמין)<input id="uAdmin" dir="ltr"></label>
+    <label class="small">אפליקציית העובד (סבב שקילה)<input id="uWorker" dir="ltr"></label>
+    <label class="small">CannaFlow (ניהול)<input id="uMgmt" dir="ltr"></label>
     <div class="links"><button class="btn primary" value="save">שמור</button><button class="btn" value="cancel">ביטול</button></div>
   </form>
 </dialog>
@@ -62,46 +56,77 @@
 <script src="app.js"></script>
 <script>
 $('refresh').innerHTML = ICON.refresh; $('settings').innerHTML = ICON.gear;
+const S = { grow: null, hub: null, photoAt: null };       // the last answers – the alerts are built from all of them together
+const MIN = 60000, old = (t, m) => t == null || Date.now() - t > m * MIN;
 
 function renderGrow(j) {
+  S.grow = j;
   const c = j.cycle || {}, P = plantNow(j.points || [], c), d = cycleDay(c, Date.now()), a = P.airNow;
-  $('gSub').textContent = (c.name || 'מחזור נוכחי') + (d ? ' · יום ' + d : '');
+  S.P = P;
+  $('gSub').textContent = (c.name || '') + (d ? (c.name ? ' · ' : '') + 'יום ' + d : '');
   const vs = a ? vpdState(a.vpd) : '', dbc = P.db >= P.lim ? 'bad' : P.db >= P.lim * .8 ? 'warn' : '';
   const eta = P.eta == null ? '—' : P.eta === 0 ? 'עכשיו' : P.eta < 48 ? hm(P.t + P.eta * 3600000) : '> יומיים';
   $('gTiles').innerHTML = [
-    tile('VPD', a ? fmt(a.vpd, 2) : '—', 'kPa', a ? ago(a.t) : '', vs),
+    tile('VPD', a ? fmt(a.vpd, 2) : '—', 'kPa', a ? ago(a.t) : 'אין נתון', vs),
     tile('טמפ׳ · לחות', a ? fmt(a.temp, 1) + '°' : '—', a ? fmt(a.rh) + '%' : '', ''),
     tile('ייבוש', fmt(P.db, 1), '%', 'סף ' + P.lim + '%', dbc, '<div class="bar ' + dbc + '"><i style="width:' + Math.max(0, Math.min(100, (P.db || 0) / P.lim * 100)) + '%"></i></div>'),
-    tile('השקיה הבאה', eta, '', P.w != null ? '<span class="num">' + fmt(P.w) + ' g</span> · <span class="num">' + fmt(P.speed) + ' g/h</span>' : ''),
+    tile('השקיה הבאה', eta, '', P.w != null ? '<span class="num">' + fmt(P.w) + ' g</span>' : ''),
   ].join('');
+  $('cGrow').textContent = (c.name || 'האצווה בחדר הפריחה') + (d ? ' · יום ' + d : '');
+  alerts();
 }
-async function renderGrowPhoto(gp) { const n = await newestPhoto(gp); if (n) { $('gThumb').style.backgroundImage = 'url(' + n.src + ')'; $('gThumb').style.display = ''; } else $('gThumb').style.display = 'none'; }
-
 function renderProp(j) {
-  const p = j.prop || {}, cl = j.climate, r = p.round, today = dayKey(Date.now());
-  const active = (p.batches || []).reduce((s, b) => s + (b.trays || 0), 0);
-  $('pSub').textContent = (p.batches || []).length + ' אצוות פעילות · ' + active + ' מגשים';
-  const vs = cl ? vpdState(cl.vpd) : '';
+  S.hub = j;
+  const p = j.prop || {}, cl = j.climate, r = p.round;
+  const trays = (p.batches || []).reduce((s, b) => s + (b.trays || 0), 0);
+  $('pSub').textContent = (p.batches || []).length + ' אצוות · ' + trays + ' מגשים';
   $('pTiles').innerHTML = [
-    tile('VPD בחדר', cl ? fmt(cl.vpd, 2) : '—', 'kPa', cl ? ago(Date.parse(cl.at)) + (cl.source ? ' · ' + cl.source : '') : '', vs),
-    tile('טמפ׳ · לחות', cl ? fmt(cl.temp, 1) + '°' : '—', cl ? fmt(cl.rh) + '%' : '', p.day ? 'היום <span class="num">' + fmt(p.day.tMin, 1) + '–' + fmt(p.day.tMax, 1) + '°</span>' : ''),
+    tile('VPD', cl ? fmt(cl.vpd, 2) : '—', 'kPa', cl ? ago(Date.parse(cl.at)) + (cl.source ? ' · ' + cl.source : '') : 'אין נתון', cl ? vpdState(cl.vpd) : ''),
+    tile('טמפ׳ · לחות', cl ? fmt(cl.temp, 1) + '°' : '—', cl ? fmt(cl.rh) + '%' : '', ''),
     tile('נשקלו היום', r ? r.weighed : '—', r ? '/ ' + r.active : '', r && r.active ? (r.weighed >= r.active ? 'הסבב הושלם' : 'נשארו ' + (r.active - r.weighed)) : '', r && r.active && r.weighed >= r.active ? 'good' : ''),
     tile('צריכים השקיה', (p.water || []).length, '', 'מגשים מעל הסף', (p.water || []).length ? 'warn' : 'good'),
   ].join('');
-  $('pBatches').innerHTML = (p.batches || []).map((b) => {
-    const day = Math.floor((Date.parse(today) - Date.parse(b.first)) / DAY), pct = b.counted ? b.rooted / b.counted * 100 : null;
-    const f = (p.forecasts || []).filter((x) => x.batch === b.name)[0];
-    return '<div class="it"><b>' + esc(b.name.replace(/^Batch /, 'אצווה ')) + '</b><span class="muted small">יום ' + day + ' · ' + b.trays + ' מגשים</span><span class="r">' + (pct != null ? 'השרשה <span class="num">' + fmt(pct) + '%</span>' : 'עוד לא נספר') + (f && f.fc != null ? ' · צפי <span class="num">' + fmt(f.fc) + '%</span>' : '') + '</span></div>';
-  }).join('');
-  $('pWater').innerHTML = (p.water || []).slice(0, 6).map((w) => '<div class="it"><span class="dot warn"></span>מגש ' + esc(w.tray) + ' <span class="muted small">' + esc(w.place) + '</span><span class="r num">' + fmt(w.db, 1) + '%</span></div>').join('');
-  $('pTasks').innerHTML = (p.tasks || []).slice(0, 4).map((t) => '<div class="it">📋 <span class="small">' + esc(t) + '</span></div>').join('');
-  const ua = store.get('adminUrl'), uw = store.get('workerUrl');
-  if (ua) { $('nAdmin').href = ua; $('nAdmin').classList.remove('off'); } if (uw) { $('nWorker').href = uw; $('nWorker').classList.remove('off'); }
-  $('pLinks').innerHTML = (uw ? '<a class="btn primary" href="' + esc(uw) + '">פתח סבב</a>' : '') + (ua ? '<a class="btn" href="' + esc(ua) + '">דף ניהול</a>' : '') + (!ua && !uw ? '<button class="btn" onclick="openDlg()">הוסף קישורים לאפליקציות הריבוי</button>' : '');
+  $('cPropS').textContent = (p.batches || []).length + ' אצוות · ' + trays + ' מגשים';
+  links(); alerts();
+}
+async function renderPhoto(gp) {
+  const all = []; Object.keys(gp.lists || {}).forEach((k) => (gp.lists[k] || []).forEach((x) => all.push(Date.parse(x.at))));
+  (gp.latest || []).forEach((x) => x && x.at && all.push(Date.parse(x.at)));
+  S.photoAt = all.length ? Math.max.apply(null, all) : null; S.photoKnown = true;
+  alerts();
 }
 
-function openDlg() { $('uAdmin').value = store.get('adminUrl') || ''; $('uWorker').value = store.get('workerUrl') || ''; $('dlg').showModal(); }
-$('dlg').addEventListener('close', () => { if ($('dlg').returnValue === 'save') { store.set('adminUrl', $('uAdmin').value.trim()); store.set('workerUrl', $('uWorker').value.trim()); const h = store.get('hub'); if (h) renderProp(h); } });
+/* what needs attention, the most urgent first */
+function alerts() {
+  const A = [], P = S.P, h = S.hub;
+  if (P) {
+    if (P.db != null && P.db >= P.lim) A.push(['bad', '💧 חדר גידול: ייבוש ' + fmt(P.db, 1) + '% – הגיע הזמן להשקות', 'batch.html']);
+    if (old(P.t, 30)) A.push(['bad', '⚖️ המשקל בחדר הגידול לא מדווח' + (P.t ? ' (' + ago(P.t) + ')' : ''), 'grow.html']);
+    const a = P.airNow;
+    if (!a || old(a.t, 30)) A.push(['', '🌡️ חיישן האוויר בחדר הגידול לא מדווח' + (a ? ' (' + ago(a.t) + ')' : ''), 'grow.html']);
+    else if (vpdState(a.vpd) === 'bad') A.push(['', '🌡️ VPD בחדר הגידול מחוץ לטווח: ' + fmt(a.vpd, 2) + ' kPa', 'batch.html']);
+  }
+  if (S.photoKnown && old(S.photoAt, 120)) A.push(['', '📷 המצלמות לא מעלות תמונות' + (S.photoAt ? ' – אחרונה ' + ago(S.photoAt) : ''), 'photos.html']);
+  if (h) {
+    const w = (h.prop && h.prop.water || []).length, cl = h.climate;
+    if (w) A.push(['', '🌱 ' + w + ' מגשים בריבוי צריכים השקיה', 'prop.html']);
+    if (!cl || old(Date.parse(cl.at), 90)) A.push(['', '🌡️ אין נתוני אקלים עדכניים מהריבוי', '']);
+    else if (vpdState(cl.vpd) === 'bad') A.push(['', '🌡️ VPD בריבוי מחוץ לטווח: ' + fmt(cl.vpd, 2) + ' kPa', '']);
+  }
+  A.sort((x, y) => (y[0] === 'bad') - (x[0] === 'bad'));
+  $('alerts').innerHTML = A.length
+    ? A.map((x) => '<a class="alert ' + x[0] + '"' + (x[2] ? ' href="' + esc(x[2]) + '"' : '') + '>' + esc(x[1]) + (x[2] ? '<span class="go">‹</span>' : '') + '</a>').join('')
+    : '';
+}
+
+/* links kept in this phone */
+function links() {
+  const ua = store.get('adminUrl'), uw = store.get('workerUrl'), um = store.get('mgmtUrl');
+  const set = (id, sid, url, txt) => { const el = $(id); if (url) { el.href = url; el.onclick = null; } else { el.removeAttribute('href'); el.onclick = openDlg; $(sid).textContent = 'הוסף קישור'; } };
+  set('cMgmt', 'cMgmtS', um); if (um) $('cMgmtS').textContent = 'CannaFlow · משימות ותכנון';
+}
+function openDlg() { $('uAdmin').value = store.get('adminUrl') || ''; $('uWorker').value = store.get('workerUrl') || ''; $('uMgmt').value = store.get('mgmtUrl') || ''; $('dlg').showModal(); }
+$('dlg').addEventListener('close', () => { if ($('dlg').returnValue === 'save') { store.set('adminUrl', $('uAdmin').value.trim()); store.set('workerUrl', $('uWorker').value.trim()); store.set('mgmtUrl', $('uMgmt').value.trim()); links(); alerts(); } });
 $('settings').onclick = openDlg;
 
 async function loadAll() {
@@ -110,11 +135,12 @@ async function loadAll() {
   await Promise.all([
     cached('grow3', 'action=grow&days=3', renderGrow, err),
     cached('hub', 'action=hub', renderProp, err),
-    cached('growphotos', 'action=growphotos&days=7', renderGrowPhoto, err),
+    cached('growphotos', 'action=growphotos&days=7', renderPhoto, err),
   ]);
   $('sub').textContent = 'עודכן ' + hm(Date.now());
   $('refresh').classList.remove('spin');
 }
+links();
 $('refresh').onclick = loadAll;
 loadAll();
 setInterval(() => { if (!document.hidden) loadAll(); }, 5 * 60000);
