@@ -20,6 +20,7 @@
   .hero .ht .r { margin-inline-start: auto; font-weight: 500; font-size: 12px; color: var(--muted); }
   .srow { display: flex; align-items: center; gap: 10px; padding: 9px 2px; border-bottom: 1px solid var(--line); }
   .srow:last-child { border-bottom: 0; }
+  .srow .tag, .stock-ed .sh .tag { padding: 0; }
   .srow .tag { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; font-weight: 800; font-size: 13px; color: #fff; flex: none; }
   .srow .nm { flex: 1; min-width: 0; font-weight: 700; font-size: 14px; }
   .srow .nm small { display: block; color: var(--muted); font-weight: 500; font-size: 11.5px; }
@@ -35,6 +36,8 @@
   .el .n b { color: var(--ink); font-weight: 800; direction: ltr; font-size: 15px; }
   .el .n .tg { font-size: 10.5px; color: var(--faint); direction: ltr; }
   .el .bar { height: 5px; }
+  .el .tgt { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); font-weight: 600; margin-top: 6px; }
+  .el .tgt input { flex: 1; min-width: 0; width: 100%; font: inherit; font-size: 14px; font-weight: 700; text-align: center; color: var(--ink); background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 5px 2px; direction: ltr; }
   .el .bar i { background: var(--fert); }
   .el.over .bar i { background: var(--amber); }
   .el.low .bar i { background: var(--blue); }
@@ -99,8 +102,13 @@
       <div style="display:flex;flex-direction:column;gap:12px">
         <div class="tiles" id="outTiles"></div>
         <div class="card">
-          <h2 id="elHd">תוצאה מול יעד · ppm</h2>
+          <h2>יעדי ppm ותוצאה <span class="r">הקלד יעד לכל יסוד</span></h2>
           <div class="elem" id="elements"></div>
+          <div class="links" style="margin-top:10px"><button class="btn fert" id="solve2">⚖️ חשב הזרקה מהיעדים</button><span class="muted small" id="fitMsg" style="align-self:center"></span></div>
+        </div>
+        <div class="card">
+          <h2>כמות דשנים <span class="r">גרם לקוב מי השקיה</span></h2>
+          <div class="list" id="fertAmt" style="margin-top:0"></div>
         </div>
         <div class="links">
           <button class="btn fert" id="saveProg">💾 שמור כתוכנית</button>
@@ -159,32 +167,42 @@ function loadProgram(id) {
   STOCKS.forEach((s) => { if (inj[s.id] == null) inj[s.id] = 0; });
   $('ecTarget').value = cur.targetEC || '';
   setMode(cur.mode || 'ec');
-  renderStockRows(); recalc();
+  renderStockRows(); renderElems(); recalc();
 }
-function setMode(m) { cur.mode = m; document.querySelectorAll('#mode b').forEach((b) => b.classList.toggle('on', b.dataset.m === m)); $('ecTargetRow').style.display = m === 'ec' ? 'flex' : 'none'; $('elHd').textContent = 'תוצאה מול יעד · ' + (m === 'ec' ? 'ppm (נגזר מ-EC)' : 'ppm'); }
+function setMode(m) { cur.mode = m; document.querySelectorAll('#mode b').forEach((b) => b.classList.toggle('on', b.dataset.m === m)); $('ecTargetRow').style.display = m === 'ec' ? 'flex' : 'none'; }
 document.querySelectorAll('#mode b').forEach((b) => b.onclick = () => { setMode(b.dataset.m); recalc(); });
 
 function renderStockRows() {
   $('stockRows').innerHTML = STOCKS.map((s) =>
-    '<div class="srow"><span class="tag" style="background:' + col(s.id) + '">' + esc(s.id) + '</span>' +
+    '<div class="srow"><span class="tag" style="background:' + col(s.id) + '">' + esc(s.id === 'ACID' ? 'pH' : s.id) + '</span>' +
     '<div class="nm">' + esc(s.name) + '<small>' + esc(s.note || '') + '</small></div>' +
     '<div class="inp"><input type="number" step="0.01" min="0" data-s="' + esc(s.id) + '" value="' + (inj[s.id] || 0) + '"><span class="u">ל׳/קוב</span></div></div>'
   ).join('');
   $('stockRows').querySelectorAll('input').forEach((el) => el.oninput = () => { inj[el.dataset.s] = Math.max(0, Number(el.value) || 0); recalc(); });
 }
+function renderElems() {
+  const T = cur.targets || {};
+  $('elements').innerHTML = ELEMS.map((e) => '<div class="el" id="el-' + e + '"><div class="n"><span>' + e + ' <span class="tg">' + ELEM_HE[e] + '</span></span><b id="ev-' + e + '">—</b></div><div class="bar"><i id="eb-' + e + '"></i></div>' +
+    '<label class="tgt">יעד<input type="number" inputmode="decimal" step="any" min="0" data-e="' + e + '" value="' + (T[e] != null ? T[e] : '') + '" placeholder="—"></label></div>').join('');
+  $('elements').querySelectorAll('input').forEach((i) => i.oninput = () => { cur.targets = cur.targets || {}; const v = i.value === '' ? null : Number(i.value); if (v == null || !isFinite(v) || v < 0) delete cur.targets[i.dataset.e]; else cur.targets[i.dataset.e] = v; recalc(); });
+}
 function recalc() {
   const r = forward(STOCKS, inj);
   const targets = cur.targets || {};
   $('outTiles').innerHTML = [
-    tile('EC מתקבל', fmt(r.ec, 2), 'mS', cur.mode === 'ec' ? 'יעד ' + fmt(Number($('ecTarget').value) || cur.targetEC, 2) : '', ''),
+    tile('EC מתקבל', fmt(r.ec, 2), 'mS', cur.mode === 'ec' ? 'יעד ' + fmt(Number($('ecTarget').value) || cur.targetEC, 2) : 'הערכה', ''),
     tile('סה״כ יסודות', fmt(r.total), 'ppm', '', ''),
     tile('מינון כולל', fmt(STOCKS.reduce((a, s) => a + (inj[s.id] || 0), 0), 2), 'ל׳/קוב', '', ''),
   ].join('');
-  $('elements').innerHTML = ELEMS.map((e) => {
-    const v = r.ppm[e] || 0, t = targets[e] || 0, pct = t ? v / t * 100 : 0;
-    const cls = !t ? '' : pct > 115 ? 'over' : pct < 85 ? 'low' : '';
-    return '<div class="el ' + cls + '"><div class="n"><span>' + e + ' <span class="tg">' + ELEM_HE[e] + '</span></span><b>' + fmt(v) + (t ? '<span class="tg"> / ' + fmt(t) + '</span>' : '') + '</b></div><div class="bar"><i style="width:' + Math.max(0, Math.min(100, pct)) + '%"></i></div></div>';
-  }).join('');
+  ELEMS.forEach((e) => {
+    const v = r.ppm[e] || 0, t = targets[e] || 0, pct = t ? v / t * 100 : 0, el = $('el-' + e); if (!el) return;
+    el.className = 'el ' + (!t ? '' : pct > 115 ? 'over' : pct < 85 ? 'low' : '');
+    $('ev-' + e).textContent = fmt(v, v < 10 ? 2 : 0); $('eb-' + e).style.width = Math.max(0, Math.min(100, pct)) + '%';
+  });
+  // how much of each fertilizer ends up in a cubic metre of irrigation water (the same fertilizer in several tanks is summed)
+  const amt = {}; STOCKS.forEach((s) => { const q = Number(inj[s.id]) || 0; if (!q || !s.vol) return; (s.items || []).forEach((it) => { amt[it.fert] = (amt[it.fert] || 0) + q * (Number(it.g) || 0) / s.vol; }); });
+  const keys = Object.keys(amt).filter((k) => amt[k] > 0).sort((x, y) => amt[y] - amt[x]);
+  $('fertAmt').innerHTML = keys.length ? keys.map((k) => '<div class="it"><b>' + esc(k) + '</b><span class="r num">' + fmt(amt[k], amt[k] < 10 ? 1 : 0) + ' g</span></div>').join('') + '<div class="it"><span class="muted">סה״כ</span><span class="r num"><b>' + fmt(keys.reduce((a, k) => a + amt[k], 0)) + ' g</b></span></div>' : '<p class="muted small" style="margin:0">אין הזרקה</p>';
 }
 $('ecTarget').oninput = recalc;
 $('solve').onclick = () => {
@@ -201,6 +219,19 @@ $('solve').onclick = () => {
   renderStockRows(); recalc();
   msg('חושבו הזרקות ליעדי השלב (EC ≈ ' + fmt(ecIn, 1) + ') — אפשר לכוונן ידנית');
 };
+/* targets typed by hand -> litres of every stock per cubic metre */
+$('solve2').onclick = () => {
+  const targets = {}; ELEMS.forEach((e) => { const t = cur.targets && cur.targets[e]; if (t != null && isFinite(t)) targets[e] = t; });
+  if (!Object.keys(targets).length) { $('fitMsg').textContent = 'הקלד יעד לפחות ליסוד אחד'; return; }
+  // the acid stays as typed (it is dosed for pH); the micro tank is solved only when a micro target was typed
+  const lock = { ACID: inj.ACID || 0 }; if ('E' in inj && !['Fe', 'Mn', 'Zn', 'B', 'Cu', 'Mo'].some((e) => targets[e] != null)) lock.E = inj.E || 0;
+  const sol = nnls(STOCKS, targets, { lock, rel: true });
+  Object.keys(sol).forEach((k) => sol[k] = Math.round(sol[k] * 100) / 100);
+  Object.assign(inj, sol); renderStockRows(); recalc();
+  const r = forward(STOCKS, inj); let worst = null;
+  Object.keys(targets).forEach((e) => { if (!targets[e]) return; const d = (r.ppm[e] - targets[e]) / targets[e] * 100; if (!worst || Math.abs(d) > Math.abs(worst[1])) worst = [e, d]; });
+  $('fitMsg').textContent = worst && Math.abs(worst[1]) > 10 ? 'הכי רחוק מהיעד: ' + worst[0] + ' ' + (worst[1] > 0 ? '+' : '') + fmt(worst[1]) + '% – הסטוקים הקיימים לא מאפשרים קרוב יותר' : 'כל היסודות בטווח 10% מהיעד';
+};
 $('saveProg').onclick = async () => {
   const name = prompt('שם התוכנית:', cur.name || 'תוכנית חדשה'); if (!name) return;
   const id = cur.id && cur.name === name ? cur.id : 'p' + Date.now();
@@ -216,7 +247,7 @@ $('prog').onchange = () => loadProgram($('prog').value);
 function fertOptions(sel) { return Object.keys(FERTS).map((f) => '<option' + (f === sel ? ' selected' : '') + '>' + esc(f) + '</option>').join(''); }
 function renderStocksEd() {
   $('stocksEd').innerHTML = STOCKS.map((s, si) =>
-    '<div class="stock-ed" data-si="' + si + '"><div class="sh"><span class="tag" style="background:' + col(s.id) + '">' + esc(s.id) + '</span><b>' + esc(s.name) + '</b>' +
+    '<div class="stock-ed" data-si="' + si + '"><div class="sh"><span class="tag" style="background:' + col(s.id) + '">' + esc(s.id === 'ACID' ? 'pH' : s.id) + '</span><b>' + esc(s.name) + '</b>' +
     '<span class="muted small" style="margin-inline-start:auto">נפח מיכל</span><input type="number" class="vol" style="width:72px;font:inherit;text-align:center;background:var(--card);border:1px solid var(--line);border-radius:9px;padding:6px 4px;direction:ltr;color:var(--ink)" value="' + s.vol + '"><span class="muted small">ל׳</span></div>' +
     (s.items || []).map((it, ii) => '<div class="itrow" data-ii="' + ii + '"><select class="fert">' + fertOptions(it.fert) + '</select><input class="g" type="number" value="' + it.g + '"><span class="muted small">ג׳</span><button class="del" title="מחק">✕</button></div>').join('') +
     '<button class="btn small addItem" style="margin-top:4px">+ דשן</button></div>'
