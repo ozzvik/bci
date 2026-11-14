@@ -254,8 +254,12 @@ function multiChart(el, o) {
     if (o.lg) o.lg.innerHTML = legend(a, w ? w.w : null, dm((a || w).t) + ' ' + hm((a || w).t));
   };
   const out = () => { cx.style.display = 'none'; if (o.lg && o.lgHtml != null) o.lg.innerHTML = o.lgHtml; };
-  hit.addEventListener('mousemove', mv); hit.addEventListener('touchmove', mv, { passive: true }); hit.addEventListener('touchstart', mv, { passive: true });
-  hit.addEventListener('mouseleave', out); hit.addEventListener('touchend', () => setTimeout(out, 2500));
+  // pointer events = mouse, finger and pen alike; a finger may still scroll the page up/down (touch-action: pan-y)
+  hit.style.touchAction = 'pan-y'; let outT;
+  const go = (ev) => { clearTimeout(outT); mv(ev); };
+  hit.addEventListener('pointermove', go); hit.addEventListener('pointerdown', go);
+  hit.addEventListener('pointerleave', (ev) => { if (ev.pointerType === 'mouse') out(); });
+  ['pointerup', 'pointercancel'].forEach((k) => hit.addEventListener(k, (ev) => { if (ev.pointerType !== 'mouse') outT = setTimeout(out, 2500); }));
 }
 /** the time range the charts show, kept in this phone. opts = [[hours, label], ...] */
 function rangeSeg(el, opts, onChange) {
@@ -266,15 +270,57 @@ function rangeSeg(el, opts, onChange) {
 /* side rail with the areas – on wide screens, on every page */
 (function () {
   const pg = (location.pathname.split('/').pop() || 'index.html').toLowerCase(), um = store.get('mgmtUrl');
-  const items = [['🏠', 'בית', 'index.html', ['index.html', '']], ['🗂️', 'ניהול', um || '', []], ['🌱', 'ריבוי', 'prop.html', ['prop.html']], ['🌿', 'גידול', 'batch.html', ['batch.html', 'grow.html', 'photos.html']], ['📦', 'מלאי – בקרוב', '', []], ['💧', 'דישון', 'fert.html', ['fert.html']]];
+  const items = [['🏠', 'בית', 'index.html', ['index.html', '']], ['🗂️', 'ניהול', 'mgmt.html', ['mgmt.html']], ['🌱', 'ריבוי', 'prop.html', ['prop.html']], ['🌿', 'גידול', 'batch.html', ['batch.html', 'grow.html', 'photos.html']], ['📦', 'מלאי', 'mgmt.html#inv', []], ['💧', 'דישון', 'fert.html', ['fert.html']]];
   const el = document.createElement('aside'); el.className = 'side';
   el.innerHTML = '<img src="icon-192.png" alt="">' + items.map((i) => '<a' + (i[2] ? ' href="' + esc(i[2]) + '"' : '') + ' data-t="' + i[1] + '" class="' + (i[3].indexOf(pg) >= 0 ? 'on' : '') + (i[2] ? '' : ' off') + '">' + i[0] + '</a>').join('');
   document.body.appendChild(el); document.body.classList.add('has-side');
 })();
 
-/* number fields: the phone shows its numeric keypad, and a tap selects the old value so typing replaces it */
+/* number fields. On a phone/tablet: the app's own keypad slides up (big keys, a dot, delete, "next field", done) instead of the phone keyboard.
+   On a computer: the normal keyboard; a click selects the old value so typing replaces it. */
 (function () {
-  const fix = (root) => (root.querySelectorAll ? root.querySelectorAll('input[type="number"]:not([inputmode])') : []).forEach((i) => i.setAttribute('inputmode', 'decimal'));
-  fix(document); new MutationObserver((ms) => ms.forEach((m) => m.addedNodes.forEach((n) => { if (n.nodeType === 1) { if (n.matches && n.matches('input[type="number"]:not([inputmode])')) n.setAttribute('inputmode', 'decimal'); fix(n); } }))).observe(document.body, { childList: true, subtree: true });
-  document.addEventListener('focusin', (e) => { const t = e.target; if (t && t.matches && t.matches('input[type="number"]')) setTimeout(() => { try { t.select(); } catch (err) {} }, 0); });
+  const touch = window.matchMedia && matchMedia('(pointer: coarse)').matches;
+  const SEL = 'input[type="number"]';
+  const mark = (i) => { if (!i.dataset.kp) { i.dataset.kp = 1; i.setAttribute('inputmode', touch ? 'none' : 'decimal'); } };
+  const fix = (root) => { if (root.matches && root.matches(SEL)) mark(root); if (root.querySelectorAll) root.querySelectorAll(SEL).forEach(mark); };
+  fix(document); new MutationObserver((ms) => ms.forEach((m) => m.addedNodes.forEach((n) => { if (n.nodeType === 1) fix(n); }))).observe(document.body, { childList: true, subtree: true });
+  if (!touch) { document.addEventListener('focusin', (e) => { const t = e.target; if (t && t.matches && t.matches(SEL)) setTimeout(() => { try { t.select(); } catch (err) {} }, 0); }); return; }
+
+  const pad = document.createElement('div'); pad.className = 'numpad'; pad.hidden = true;
+  pad.innerHTML = '<div class="np-top"><span class="np-lbl"></span><b class="np-val"></b></div><div class="np-keys">' +
+    ['7', '8', '9', '4', '5', '6', '1', '2', '3', '.', '0', 'del'].map((k) => '<button type="button" data-k="' + k + '">' + (k === 'del' ? '⌫' : k) + '</button>').join('') +
+    '</div><div class="np-act"><button type="button" data-k="clr">נקה</button><button type="button" data-k="next">הבא ›</button><button type="button" data-k="ok" class="np-ok">✓ סיום</button></div>';
+  document.body.appendChild(pad);
+  let cur = null, buf = '', fresh = true;
+  const lblOf = (i) => { const l = i.getAttribute('aria-label') || i.placeholder || ''; if (l) return l; const lab = i.id && document.querySelector('label[for="' + i.id + '"]'); if (lab) return lab.textContent.trim(); const row = i.closest('label, .it, .row, .el, .mt, div'); return row ? (row.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 40) : ''; };
+  const show = () => { pad.querySelector('.np-val').textContent = buf === '' ? '–' : buf; };
+  const write = () => {
+    if (!cur) return; const n = Number(buf);
+    if (buf === '' || buf === '.') cur.value = ''; else if (isFinite(n)) cur.value = buf.endsWith('.') ? String(n) : buf;
+    cur.dispatchEvent(new Event('input', { bubbles: true }));
+  };
+  const close = () => { if (!cur) return; const c = cur; cur = null; pad.hidden = true; document.body.classList.remove('np-open'); c.dispatchEvent(new Event('change', { bubbles: true })); c.blur(); };
+  const open = (i) => {
+    if (cur === i) return; if (cur) { const c = cur; c.dispatchEvent(new Event('change', { bubbles: true })); }
+    cur = i; buf = i.value || ''; fresh = true;
+    pad.querySelector('.np-lbl').textContent = lblOf(i); show();
+    pad.hidden = false; document.body.classList.add('np-open');
+    setTimeout(() => i.scrollIntoView({ block: 'center', behavior: 'smooth' }), 30);
+  };
+  document.addEventListener('focusin', (e) => { const t = e.target; if (t && t.matches && t.matches(SEL) && !t.disabled && !t.readOnly) open(t); });
+  // a tap anywhere else closes the keypad – after that tap did its own job, so the page does not jump under the finger
+  document.addEventListener('click', (e) => { if (cur && !pad.contains(e.target) && !(e.target.matches && e.target.matches(SEL))) setTimeout(close, 0); }, true);
+  document.addEventListener('focusin', (e) => { const t = e.target; if (cur && t !== cur && !(t.matches && t.matches(SEL))) setTimeout(close, 0); });   // typing in a text field
+  pad.addEventListener('pointerdown', (e) => e.preventDefault());       // keep the field focused while keys are pressed
+  pad.addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b || !cur) return; const k = b.dataset.k;
+    if (k === 'ok') return close();
+    if (k === 'next') { const all = [...document.querySelectorAll(SEL)].filter((x) => x.offsetParent && !x.disabled && !x.readOnly), j = all.indexOf(cur); const nx = all[j + 1]; if (!nx) return close(); nx.focus(); open(nx); return; }
+    if (k === 'clr') buf = '';
+    else if (k === 'del') buf = fresh ? '' : buf.slice(0, -1);
+    else if (k === '.') { if (fresh) buf = '0.'; else if (buf.indexOf('.') < 0) buf = (buf || '0') + '.'; }
+    else buf = (fresh || buf === '0') ? k : buf + k;
+    fresh = false; show(); write();
+    if (navigator.vibrate) try { navigator.vibrate(8); } catch (err) {}
+  });
 })();
