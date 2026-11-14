@@ -102,12 +102,14 @@ function nnls(stocks, targets, opts) {
   const cols = stocks.map((s) => s.id).filter((id) => !(opts.lock && id in opts.lock));
   const n = cols.length;
   const rows = ELEMS.filter((e) => targets[e] != null);
-  const A = rows.map((e) => cols.map((id) => gPerL(stocks.find((s) => s.id === id), e)));
+  // opts.rel: every element counts by its relative miss (so 2 ppm of iron matters like 290 ppm of potassium)
+  const wt = rows.map((e) => opts.rel ? 1 / Math.max(Number(targets[e]) || 0, 1) : 1);
+  const A = rows.map((e, ri) => cols.map((id) => gPerL(stocks.find((s) => s.id === id), e) * wt[ri]));
   // יעד בניכוי תרומת סטוקים נעולים (למשל חומצה בקיבוע ידני)
   const b = rows.map((e, ri) => {
     let t = targets[e];
     if (opts.lock) stocks.forEach((s) => { if (s.id in opts.lock) t -= gPerL(s, e) * opts.lock[s.id]; });
-    return t;
+    return t * wt[ri];
   });
   // AtA, Atb
   const AtA = Array.from({ length: n }, () => new Array(n).fill(0)), Atb = new Array(n).fill(0);
