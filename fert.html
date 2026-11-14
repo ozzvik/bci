@@ -12,7 +12,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 <style>
-  :root { --fert: #1f9e8f; --fert-d: #18857a; }
+  :root { --fert: var(--accent); --fert-d: var(--accent-d); }
   .icon-btn.fert svg { stroke: var(--fert); }
   /* hero: ליטר/קוב לכל סטוק */
   .hero { background: linear-gradient(160deg, color-mix(in srgb, var(--fert) 14%, transparent), var(--card)); border: 1px solid color-mix(in srgb, var(--fert) 35%, var(--line)); border-radius: var(--radius); padding: 14px; }
@@ -87,7 +87,7 @@
           </div>
           <div id="ecTargetRow" style="margin-top:10px;display:flex;align-items:center;gap:10px">
             <label class="small muted" style="font-weight:600">EC יעד</label>
-            <input id="ecTarget" type="number" step="0.1" style="width:90px;font:inherit;font-size:15px;font-weight:700;text-align:center;color:var(--ink);background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:7px 4px;direction:ltr">
+            <input id="ecTarget" aria-label="EC יעד (mS/cm)" type="number" step="0.1" style="width:90px;font:inherit;font-size:15px;font-weight:700;text-align:center;color:var(--ink);background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:7px 4px;direction:ltr">
             <span class="small muted">mS/cm</span>
             <button class="btn fert" id="solve" style="margin-inline-start:auto">⚖️ פתור ליעד</button>
           </div>
@@ -208,12 +208,15 @@ $('ecTarget').oninput = recalc;
 $('solve').onclick = () => {
   const ecIn = Number($('ecTarget').value) || cur.targetEC || 2.4;
   // יעדי ppm אמיתיים של השלב, מוקטנים/מוגדלים פרופורציונלית ל-EC שבחר המשתמש
-  const natEC = EC_MAIN.reduce((s, e) => s + (cur.targets[e] || 0), 0) * EC_K;
-  const k = natEC ? ecIn / natEC : 1, targets = {};
-  ELEMS.forEach((e) => { if (cur.targets[e] != null) targets[e] = cur.targets[e] * k; });
-  // נועלים חומצה (pH ידני) ומיקרו (E) על ערכי השלב, כדי שהפתירה תחשב רק את מיכלי הדשן הראשיים
+  // ppm targets of the phase, scaled up/down until the mix gives the EC asked for (EC as in the sheet: all elements incl. Cl /500 + 0.4)
   const lock = { ACID: inj.ACID || 0 }; if ('E' in inj) lock.E = inj.E || 0;
-  const sol = nnls(STOCKS, targets, { lock });
+  let k = 1, sol = null;
+  for (let it = 0; it < 6; it++) {
+    const targets = {}; ELEMS.forEach((e) => { if (cur.targets[e] != null) targets[e] = cur.targets[e] * k; });
+    sol = nnls(STOCKS, targets, { lock });
+    const ec = forward(STOCKS, sol).ec, f = (ecIn - EC_WATER) / Math.max(ec - EC_WATER, 0.01);
+    if (Math.abs(f - 1) < 0.005) break; k *= f;
+  }
   Object.keys(sol).forEach((k) => sol[k] = Math.round(sol[k] * 100) / 100);
   Object.assign(inj, sol);
   renderStockRows(); recalc();
@@ -289,15 +292,20 @@ let msgT; function msg(s) { $('msg').textContent = s; clearTimeout(msgT); msgT =
 function showBanner(s) { const b = $('banner'); if (s) { b.textContent = s; b.hidden = false; } else b.hidden = true; }
 
 /* ---------- הפעלה ---------- */
+let first = true;
+function showAll() {
+  const want = decodeURIComponent(location.hash.slice(1)), keep = !first && cur && cur.id;   // batch.html opens the program of the current phase
+  loadProgram(((keep && PROGRAMS.find((p) => p.id === keep)) || PROGRAMS.find((p) => p.id === want) || PROGRAMS.find((p) => p.id === 'bulking') || PROGRAMS[0]).id); fillProgSelect();
+  $('sub').textContent = STOCKS.length + ' סטוקים · ' + PROGRAMS.length + ' תוכניות';
+}
 async function init() {
   $('refresh').classList.add('spin');
+  if (first) { readLocal(); showAll(); first = false; }       // at once from the copy on the device
   const r = await loadFert();
   $('refresh').classList.remove('spin');
   if (!r.synced) showBanner('עובד במצב מקומי (השרת עדיין לא תומך בסנכרון דישון) — הנתונים נשמרים במכשיר זה בינתיים.');
   else showBanner('');
-  const want = decodeURIComponent(location.hash.slice(1));   // batch.html opens the program of the current phase
-  loadProgram((PROGRAMS.find((p) => p.id === want) || PROGRAMS.find((p) => p.id === 'bulking') || PROGRAMS[0]).id); fillProgSelect();
-  $('sub').textContent = STOCKS.length + ' סטוקים · ' + PROGRAMS.length + ' תוכניות';
+  showAll();
 }
 $('refresh').onclick = init;
 init();
