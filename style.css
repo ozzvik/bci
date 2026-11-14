@@ -9,8 +9,8 @@
 }
 @media (prefers-color-scheme: light) {
   :root:not([data-theme="dark"]) {
-    --bg: #f3f5f2; --bg2: #eaeeea; --card: #ffffff; --card2: #f6f8f6; --line: #e1e7e2;
-    --ink: #142019; --muted: #5f6f66; --faint: #9aa8a0;
+    --bg: #f1f4f9; --bg2: #e7ecf4; --card: #ffffff; --card2: #f5f7fb; --line: #dfe5ef;
+    --ink: #111a2c; --muted: #5b6982; --faint: #97a3b8;
     --green: #1f9d57; --green-d: #157a43; --blue: #2b6fd6; --accent: #2b6fd6; --accent-d: #1f5bb8; --cyan: #0e9fbf; --amber: #d98612; --red: #d64545; --violet: #7a52d1;
     --night: rgba(60, 80, 120, .07); --grid: rgba(0, 0, 0, .06);
     --shadow: 0 1px 2px rgba(0, 0, 0, .05), 0 6px 20px rgba(0, 0, 0, .05);
@@ -204,3 +204,17 @@ textarea.note { width: 100%; min-height: 74px; font: inherit; font-size: 14px; c
 .top .sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .chip { display: inline-flex; align-items: baseline; gap: 5px; } .chip span { unicode-bidi: isolate; margin: 0 !important; }
+
+/* the app's own number keypad (phones/tablets) */
+.numpad { position: fixed; inset-inline: 0; bottom: 0; z-index: 60; background: var(--card); border-top: 1px solid var(--line); box-shadow: 0 -10px 30px rgba(0,0,0,.25); padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); max-width: 560px; margin: 0 auto; border-radius: 18px 18px 0 0; }
+.numpad[hidden] { display: none; }
+.np-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 2px 6px 8px; }
+.np-lbl { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.np-val { font-size: 26px; font-variant-numeric: tabular-nums; direction: ltr; color: var(--ink); }
+.np-keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; direction: ltr; }
+.np-keys button, .np-act button { font: inherit; font-size: 22px; font-weight: 600; height: 52px; border-radius: 12px; border: 1px solid var(--line); background: var(--card2); color: var(--ink); touch-action: manipulation; }
+.np-keys button:active, .np-act button:active { background: var(--line); }
+.np-act { display: grid; grid-template-columns: 1fr 1fr 1.4fr; gap: 7px; margin-top: 7px; }
+.np-act button { font-size: 16px; height: 46px; }
+.np-act .np-ok { background: var(--accent); border-color: var(--accent); color: #fff; }
+body.np-open { padding-bottom: 330px; }
