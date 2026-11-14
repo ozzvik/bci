@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a101c">
+<title>ניהול · BCI</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+  .tabs { display: flex; gap: 4px; background: var(--card2); border: 1px solid var(--line); border-radius: 12px; padding: 4px; margin-bottom: 12px; }
+  .tabs button { flex: 1; font: inherit; font-size: 14px; font-weight: 700; padding: 9px 4px; border: 0; border-radius: 9px; background: none; color: var(--muted); }
+  .tabs button.on { background: var(--accent); color: #fff; }
+  .chipsF { display: flex; gap: 6px; overflow-x: auto; margin: 0 0 10px; scrollbar-width: none; }
+  .chipsF button { font: inherit; font-size: 12.5px; font-weight: 700; white-space: nowrap; padding: 6px 12px; border-radius: 20px; border: 1px solid var(--line); background: var(--card); color: var(--muted); }
+  .chipsF button.on { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+  .gh { font-size: 12.5px; font-weight: 800; color: var(--muted); margin: 14px 4px 7px; display: flex; gap: 8px; }
+  .gh.bad { color: var(--red); }
+  .tk { display: flex; align-items: center; gap: 10px; background: var(--card); border: 1px solid var(--line); border-inline-start: 3px solid var(--c, var(--accent)); border-radius: 12px; padding: 10px 12px; margin-bottom: 7px; }
+  .tk .cb { width: 24px; height: 24px; border-radius: 7px; border: 1.5px solid var(--muted); flex: none; display: grid; place-items: center; font-size: 13px; background: none; color: #fff; padding: 0; }
+  .tk.done .cb { background: var(--green-d); border-color: var(--green-d); } .tk.done b { color: var(--muted); text-decoration: line-through; }
+  .tk.busy { opacity: .55; }
+  .tk b { flex: 1; font-size: 14px; min-width: 0; } .tk b small { display: block; color: var(--muted); font-weight: 500; font-size: 11.5px; text-decoration: none; }
+  .tk .pr { font-size: 11px; }
+  .rm { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 10px; }
+  .rm h3 { margin: 0 0 6px; font-size: 15px; display: flex; gap: 8px; align-items: center; } .rm h3 small { color: var(--muted); font-weight: 500; font-size: 12px; }
+  .bt { border-top: 1px solid var(--line); padding: 9px 0 3px; }
+  .bt:first-of-type { border-top: 0; }
+  .bt .bn { font-weight: 700; font-size: 14px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .bt .bm { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .prog { height: 6px; border-radius: 4px; background: var(--card2); margin-top: 7px; overflow: hidden; } .prog i { display: block; height: 100%; background: var(--accent); }
+  .mt { display: flex; align-items: center; gap: 10px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 9px 12px; margin-bottom: 7px; }
+  .mt b { flex: 1; font-size: 14px; } .mt b small { display: block; color: var(--muted); font-weight: 500; font-size: 11.5px; }
+  .mt.low { border-color: color-mix(in srgb, var(--red) 55%, var(--line)); } .mt.low b small { color: var(--red); }
+  .mt.mid b small { color: var(--amber); }
+  .stp { display: flex; align-items: center; gap: 4px; direction: ltr; }
+  .stp button { width: 34px; height: 34px; border-radius: 9px; border: 1px solid var(--line); background: var(--card2); color: var(--ink); font-size: 18px; font-weight: 700; }
+  .stp input { width: 58px; height: 34px; text-align: center; font: inherit; font-weight: 700; color: var(--ink); background: var(--card2); border: 1px solid var(--line); border-radius: 9px; }
+  .cflog { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; }
+  .cflog input { font: inherit; color: var(--ink); background: var(--card2); border: 1px solid var(--line); border-radius: 10px; padding: 10px; flex: 1 1 160px; min-width: 0; }
+  .addf { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .addf input, .addf select { font: inherit; color: var(--ink); background: var(--card2); border: 1px solid var(--line); border-radius: 10px; padding: 9px 10px; min-width: 0; }
+  .addf #nName { flex: 1 1 100%; }
+  .addf select { flex: 1 1 40%; } .addf input[type=date] { flex: 1 1 55%; min-width: 150px; }
+  .lk { font-size: 11.5px; font-weight: 700; color: var(--green); }
+  .acct { display: flex; gap: 8px; align-items: center; color: var(--muted); font-size: 12px; margin: 14px 4px; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="icon-btn" href="index.html" aria-label="חזרה" id="back"></a>
+  <div class="t"><h1>ניהול</h1><div class="sub" id="sub">CannaFlow · טוען…</div></div>
+  <button class="icon-btn" id="refresh" aria-label="רענון"></button>
+</header>
+<main class="wrap">
+  <div id="login" hidden></div>
+  <div id="app" hidden>
+    <div class="tabs" id="tabs"><button data-t="tasks" class="on">📋 משימות</button><button data-t="rooms">🏠 חדרים ואצוות</button><button data-t="inv">📦 מלאי</button></div>
+
+    <section id="t-tasks">
+      <div class="chipsF" id="dept"></div>
+      <div id="tlist"></div>
+      <div class="room" style="margin-top:12px">
+        <div class="rt"><b>➕ משימה חדשה</b><span class="fl"></span><span class="muted small">נכנסת ישר לגאנט</span></div>
+        <div class="addf"><input id="nName" placeholder="מה צריך לעשות"><select id="nDept"></select><select id="nRoom"></select><input id="nDate" type="date"><button class="btn primary" id="nAdd">הוסף</button></div>
+      </div>
+    </section>
+
+    <section id="t-rooms" hidden><div id="rlist"></div></section>
+
+    <section id="t-inv" hidden>
+      <div class="muted small" style="margin:0 4px 8px" id="invSum"></div>
+      <div id="ilist"></div>
+    </section>
+
+    <div class="acct"><span id="who"></span><span class="fl" style="flex:1"></span><a class="btn" id="openCF" target="_blank" rel="noopener" hidden>פתח את CannaFlow ‹</a><button class="btn" id="out">התנתק</button></div>
+  </div>
+  <div class="msg" id="msg"></div>
+</main>
+<script src="app.js"></script>
+<script src="cf.js"></script>
+<script>
+$('refresh').innerHTML = ICON.refresh; $('back').innerHTML = ICON.back;
+const say = (t, bad) => { $('msg').textContent = t || ''; $('msg').className = 'msg' + (bad ? ' err' : ''); };
+const DCOL = { prop: '#3b8cff', grow: '#3ddc97', post: '#f5b942', ops: '#9d8cff', purch: '#22c3e6' };
+const PRI = { urgent: '🔴', high: '🟠', normal: '', low: '' };
+let TAB = (location.hash.slice(1) || store.get('mgmt.tab') || 'tasks'), DEPT = store.get('mgmt.dept') || 'all', LINK = null;
+const busy = new Set();                                   // tasks being saved right now
+const dd = (s) => s ? s.slice(8, 10) + '.' + s.slice(5, 7) : '';
+
+function showTab(t) {
+  TAB = ['tasks', 'rooms', 'inv'].includes(t) ? t : 'tasks'; store.set('mgmt.tab', TAB);
+  $('tabs').querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.t === TAB));
+  ['tasks', 'rooms', 'inv'].forEach((k) => $('t-' + k).hidden = k !== TAB);
+}
+$('tabs').onclick = (e) => { const b = e.target.closest('button'); if (b) { showTab(b.dataset.t); history.replaceState(null, '', '#' + TAB); } };
+
+function render() {
+  const d = CF.data; if (!d) return;
+  $('sub').textContent = 'CannaFlow · ' + (CF.at ? 'עודכן ' + ago(Date.parse(CF.at)) + (CF.by ? ' · ' + CF.by.split('@')[0] : '') : '');
+  renderTasks(d); renderRooms(d); renderInv(d);
+  const um = store.get('mgmtUrl'); $('openCF').hidden = !um; if (um) $('openCF').href = um;
+  $('who').textContent = CF.user ? 'מחובר: ' + CF.user.email : 'לא מחובר – מוצג העותק האחרון';
+}
+
+/* ---------- tasks: late, today, the next 7 days ---------- */
+function renderTasks(d) {
+  const today = cfToday(), wk = cfAddDays(today, 7), all = (d.tasks || []);
+  $('dept').innerHTML = [['all', 'הכול']].concat(Object.entries(CF_DEPTS)).map(([k, v]) => '<button data-d="' + k + '" class="' + (DEPT === k ? 'on' : '') + '">' + v + '</button>').join('');
+  $('dept').querySelectorAll('button').forEach((b) => b.onclick = () => { DEPT = b.dataset.d; store.set('mgmt.dept', DEPT); renderTasks(CF.data); });
+  const L = all.filter((t) => t.date && (DEPT === 'all' || t.dept === DEPT));
+  const late = L.filter((t) => !t.done && t.date < today), now = L.filter((t) => t.date === today), next = L.filter((t) => !t.done && t.date > today && t.date <= wk);
+  const row = (t) => '<div class="tk' + (t.done ? ' done' : '') + (busy.has(t.id) ? ' busy' : '') + '" style="--c:' + (DCOL[t.dept] || 'var(--accent)') + '"><button class="cb" data-id="' + esc(t.id) + '" aria-label="בוצע">' + (t.done ? '✓' : '') + '</button><b>' + (PRI[t.priority] ? '<span class="pr">' + PRI[t.priority] + '</span> ' : '') + esc(t.name) +
+    '<small>' + esc([CF_DEPTS[t.dept], cfRoomName(d, t.room), t.date !== today ? dd(t.date) : '', t.note].filter(Boolean).join(' · ')) + '</small></b></div>';
+  const by = (a, b) => (a.date || '').localeCompare(b.date || '') || (a.priority === 'urgent' ? -1 : 0);
+  const grp = (title, A, cls) => A.length ? '<div class="gh ' + (cls || '') + '">' + title + '<span>' + A.length + '</span></div>' + A.sort(by).map(row).join('') : '';
+  $('tlist').innerHTML = (grp('⚠️ באיחור', late, 'bad') + grp('📅 היום', now) + grp('🗓️ 7 הימים הקרובים', next)) || '<p class="muted small" style="margin:10px 4px">אין משימות פתוחות לשבוע הקרוב' + (DEPT !== 'all' ? ' ב' + CF_DEPTS[DEPT] : '') + ' 🎉</p>';
+  $('tlist').querySelectorAll('.cb').forEach((b) => b.onclick = async () => {
+    const id = b.dataset.id, t = (CF.data.tasks || []).find((x) => x.id === id); if (!t || busy.has(id)) return;
+    busy.add(id); t.done = !t.done; renderTasks(CF.data);                   // shows at once; the patch below writes it
+    try { await cfSetDone(id, t.done); say(t.done ? 'סומן כבוצע ב-CannaFlow ✓' : 'הוחזר לפתוח'); } catch (e) { say('לא נשמר – ' + e.message, true); try { await cfFetch(); } catch (x) {} }
+    busy.delete(id); render();
+  });
+  // the add form
+  const rooms = d.rooms || [];
+  if (!$('nDept').options.length) { $('nDept').innerHTML = Object.entries(CF_DEPTS).map(([k, v]) => '<option value="' + k + '">' + v + '</option>').join(''); $('nDept').value = 'grow'; $('nDate').value = today; }
+  const keep = $('nRoom').value;
+  $('nRoom').innerHTML = '<option value="">בלי חדר</option>' + rooms.map((r) => '<option value="' + esc(r.id) + '">' + esc(r.name) + '</option>').join(''); $('nRoom').value = keep;
+}
+$('nAdd').onclick = async () => {
+  const name = $('nName').value.trim(); if (!name) { say('כתוב מה צריך לעשות', true); return; }
+  $('nAdd').disabled = true;
+  try { await cfAddTask({ name, dept: $('nDept').value, room: $('nRoom').value, date: $('nDate').value || cfToday(), note: 'נוסף מ-BCI' }); $('nName').value = ''; say('המשימה נוספה לגאנט ✓'); render(); }
+  catch (e) { say('לא נוסף – ' + e.message, true); }
+  $('nAdd').disabled = false;
+};
+$('nName').onkeydown = (e) => { if (e.key === 'Enter') $('nAdd').click(); };
+
+/* ---------- rooms with the batches in them ---------- */
+function renderRooms(d) {
+  const B = cfBatches(d), today = cfToday(), rooms = (d.rooms || []).slice();
+  const orderD = { grow: 0, prop: 1, post: 2 }; rooms.sort((a, b) => (orderD[a.dept] ?? 9) - (orderD[b.dept] ?? 9));
+  const bHtml = (b) => {
+    const s = b.plant || b.flower, e = b.harvest, pc = s && e ? Math.max(0, Math.min(100, (Date.parse(today) - Date.parse(s)) / (Date.parse(e) - Date.parse(s)) * 100)) : null;
+    const fd = b.flower && b.flower <= today ? Math.floor((Date.parse(today) - Date.parse(b.flower)) / DAY) + 1 : null;
+    const nx = b.tasks.find((t) => !t.done && t.date >= today);
+    const linked = LINK && LINK.batch === b.id;
+    return '<div class="bt"><div class="bn">' + esc(b.name) + (linked ? '<span class="lk">● מחובר לחדר הפריחה ב-BCI</span>' : '') + '</div>' +
+      '<div class="bm">' + esc([b.plant ? 'שתילה ' + dd(b.plant) : '', b.flower ? 'הפרחה ' + dd(b.flower) + (fd ? ' (יום ' + fd + ')' : '') : '', b.harvest ? 'קציר ' + dd(b.harvest) : ''].filter(Boolean).join(' · ')) + '</div>' +
+      (nx ? '<div class="bm">הבא: ' + esc(nx.name) + ' · ' + dd(nx.date) + '</div>' : '') +
+      (pc != null ? '<div class="prog"><i style="width:' + pc.toFixed(0) + '%"></i></div>' : '') +
+      (linked ? '' : '<div class="links" style="margin-top:7px"><button class="btn" data-link="' + esc(b.id) + '">🔗 זו האצווה בחדר הפריחה של BCI</button></div>') + '</div>';
+  };
+  const used = new Set();
+  let h = rooms.map((r) => { const L = B.filter((b) => b.room === r.id); L.forEach((b) => used.add(b.id)); if (!L.length && r.dept !== 'grow') return '';
+    return '<div class="rm"><h3>' + esc(r.name) + '<small>' + esc(CF_DEPTS[r.dept] || '') + '</small></h3>' + (L.length ? L.map(bHtml).join('') : '<div class="bm muted small">פנוי – אין אצווה פעילה</div>') + '</div>'; }).join('');
+  const rest = B.filter((b) => !used.has(b.id)); if (rest.length) h += '<div class="rm"><h3>אצוות בלי חדר</h3>' + rest.map(bHtml).join('') + '</div>';
+  $('rlist').innerHTML = h || '<p class="muted small">אין חדרים ב-CannaFlow</p>';
+  $('rlist').querySelectorAll('[data-link]').forEach((b) => b.onclick = async () => {
+    const x = B.find((y) => y.id === b.dataset.link); if (!x) return;
+    const link = { batch: x.id, room: x.room, name: x.name };
+    try { await apiPost({ action: 'savebatch', link }); LINK = link; const T = store.get('batchsrv'); if (T) { T.link = link; store.set('batchsrv', T); } say('חדר הפריחה ב-BCI מחובר ל"' + x.name + '" – המשימות והתאריכים יסונכרנו בדף האצווה'); renderRooms(CF.data); }
+    catch (e) { say('לא נשמר – ' + e.message, true); }
+  });
+}
+
+/* ---------- inventory: the same counts as in CannaFlow ---------- */
+const qTimers = {};
+function renderInv(d) {
+  if ($('ilist').contains(document.activeElement)) return;           // never redraw under the finger
+  const M = cfMaterials(d), cats = [...new Set(M.map((m) => m.cat || 'אחר'))];
+  const low = M.filter((m) => m.qty != null && m.qty < (m.minStock || 0)).length, under = M.filter((m) => m.qty != null && m.target && m.qty < m.target).length;
+  $('invSum').textContent = M.length + ' פריטים · ' + (low ? low + ' מתחת למינימום · ' : '') + (under ? under + ' מתחת ליעד' : 'הכול ביעד');
+  $('ilist').innerHTML = cats.map((c) => '<div class="gh">' + esc(c) + '</div>' + M.filter((m) => (m.cat || 'אחר') === c).map((m) => {
+    const cls = m.qty != null && m.qty < (m.minStock || 0) ? 'low' : m.qty != null && m.target && m.qty < m.target ? 'mid' : '';
+    return '<div class="mt ' + cls + '"><b>' + esc(m.name) + '<small>' + esc((m.unit || '') + ' · יעד ' + (m.target ?? '—') + ' · מינ׳ ' + (m.minStock ?? 0) + (cls === 'low' ? ' · להזמין' : cls === 'mid' ? ' · חסר ' + (m.target - m.qty) : '')) + '</small></b>' +
+      '<div class="stp"><button data-m="' + esc(m.id) + '" data-s="-1">−</button><input type="number" min="0" step="0.5" data-q="' + esc(m.id) + '" value="' + (m.qty ?? '') + '" aria-label="' + esc(m.name) + '"><button data-m="' + esc(m.id) + '" data-s="1">+</button></div></div>';
+  }).join('')).join('');
+  const save = (id, v) => { clearTimeout(qTimers[id]); qTimers[id] = setTimeout(async () => { try { await cfSetQty(id, v); say('המלאי עודכן ב-CannaFlow ✓'); } catch (e) { say('לא נשמר – ' + e.message, true); } }, 900); };
+  $('ilist').querySelectorAll('[data-s]').forEach((b) => b.onclick = () => { const i = $('ilist').querySelector('[data-q="' + b.dataset.m + '"]'); const v = Math.max(0, (Number(i.value) || 0) + Number(b.dataset.s)); i.value = v; save(b.dataset.m, v); });
+  $('ilist').querySelectorAll('[data-q]').forEach((i) => i.onchange = () => save(i.dataset.q, i.value === '' ? null : Math.max(0, Number(i.value) || 0)));
+}
+
+/* ---------- start ---------- */
+cfOn(render);
+async function start() {
+  $('refresh').classList.add('spin'); say('');
+  const T = store.get('batchsrv'); LINK = T && T.link || null;
+  api('action=batch').then((j) => { LINK = j.link || null; store.set('batchsrv', j); if (CF.data) renderRooms(CF.data); }).catch(() => {});
+  const ok = await cfStart();
+  $('refresh').classList.remove('spin');
+  if (!ok) { $('app').hidden = !CF.data; $('login').hidden = false; cfLoginBox($('login'), () => { $('login').hidden = true; $('app').hidden = false; }); $('sub').textContent = 'CannaFlow · צריך להתחבר פעם אחת'; return; }
+  $('login').hidden = true; $('app').hidden = false; render();
+}
+$('refresh').onclick = () => CF.user ? (async () => { $('refresh').classList.add('spin'); try { await cfFetch(); render(); } catch (e) { say(e.message, true); } $('refresh').classList.remove('spin'); })() : start();
+$('out').onclick = async () => { await cfLogout(); start(); };
+window.addEventListener('hashchange', () => showTab(location.hash.slice(1)));
+showTab(TAB); start();
+</script>
+</body>
+</html>
