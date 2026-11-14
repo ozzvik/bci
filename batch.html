@@ -22,6 +22,13 @@
   .task.done .cb { background: var(--green-d); border-color: var(--green-d); color: #fff; } .task.done b { color: var(--muted); text-decoration: line-through; }
   .task b { flex: 1; font-size: 14px; } .task b small { display: block; color: var(--muted); font-weight: 500; font-size: 11.5px; text-decoration: none; }
   .task .x { color: var(--faint); font-size: 16px; padding: 0 4px; }
+  .cfd { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 4px 0 8px; font-size: 13.5px; }
+  .cfd .warn { color: var(--amber); font-weight: 700; }
+  .cft { display: flex; align-items: center; gap: 9px; padding: 7px 2px; border-top: 1px solid var(--line); font-size: 13.5px; }
+  .cft .cb { width: 22px; height: 22px; border-radius: 7px; border: 1.5px solid var(--muted); display: grid; place-items: center; font-size: 12px; background: none; color: #fff; padding: 0; flex: none; }
+  .cft.done .cb { background: var(--green-d); border-color: var(--green-d); } .cft.done span { color: var(--muted); text-decoration: line-through; }
+  .cft span { flex: 1; } .cft small { color: var(--muted); }
+  .task .sync { font-size: 10.5px; color: var(--green); font-weight: 700; margin-inline-start: 4px; }
   #tNew, #tWho { font: inherit; color: var(--ink); background: var(--card2); border: 1px solid var(--line); border-radius: 10px; padding: 9px 10px; min-width: 0; }
 </style>
 </head>
@@ -79,6 +86,10 @@
           <div id="tasks"></div>
           <div class="form" style="margin-top:8px"><input id="tNew" placeholder="משימה חדשה לשלב הזה" style="flex:1"><input id="tWho" placeholder="מי" style="width:70px"><button class="btn" id="tAdd">הוסף</button></div>
         </div>
+        <div class="room" id="cfCard">
+          <div class="rt"><b>🔗 CannaFlow · גאנט</b><span class="fl"></span><span id="cfState" class="muted small"></span></div>
+          <div id="cfBody"><p class="muted small" style="margin:0">טוען…</p></div>
+        </div>
         <div class="photo" id="photo"><div class="empty">אין תמונה</div></div>
         <div class="links"><a class="btn" href="grow.html">📈 גרפים מפורטים</a><a class="btn" href="photos.html">🎬 תמונות</a><button class="btn" id="edit">✏️ שם ותאריך האצווה</button></div>
         <p class="muted small" id="note" style="margin-top:10px"></p>
@@ -89,6 +100,7 @@
 </main>
 
 <script src="app.js"></script>
+<script src="cf.js"></script>
 <script>
 $('refresh').innerHTML = ICON.refresh; $('back').innerHTML = ICON.back;
 let G = null, F = null, GP = null, T = null;      // grow data, fertigation programs, photos, batch store (tasks, notes, fert)
@@ -193,18 +205,19 @@ function tasks() {
   if (!VIEW) return;
   const L = ((T && T.tasks) || []).filter((t) => t.phase === VIEW.id), open = L.filter((t) => !t.done).length;
   $('tCount').textContent = T ? (L.length ? open + ' פתוחות מתוך ' + L.length : '') : 'טוען…';
-  $('tasks').innerHTML = L.length ? L.map((t) => '<div class="task' + (t.done ? ' done' : '') + '" data-id="' + esc(t.id) + '"><span class="cb">' + (t.done ? '✓' : '') + '</span><b>' + esc(t.text) + '<small>' + esc([t.done ? 'בוצע' + (t.doneAt ? ' ' + dm(Date.parse(t.doneAt)) : '') : '', t.who].filter(Boolean).join(' · ')) + '</small></b><button class="x" data-del="1" aria-label="מחק">✕</button></div>').join('') : (T ? '<p class="muted small" style="margin:2px 4px 8px">אין משימות לשלב ' + esc(VIEW.name) + ' – הוסף למטה.</p>' : '');
+  $('tasks').innerHTML = L.length ? L.map((t) => '<div class="task' + (t.done ? ' done' : '') + '" data-id="' + esc(t.id) + '"><span class="cb">' + (t.done ? '✓' : '') + '</span><b>' + esc(t.text) + (t.cs ? '<span class="sync" title="מסונכרן לגאנט">⇄ גאנט</span>' : '') + '<small>' + esc([t.done ? 'בוצע' + (t.doneAt ? ' ' + dm(Date.parse(t.doneAt)) : '') : '', t.who].filter(Boolean).join(' · ')) + '</small></b><button class="x" data-del="1" aria-label="מחק">✕</button></div>').join('') : (T ? '<p class="muted small" style="margin:2px 4px 8px">אין משימות לשלב ' + esc(VIEW.name) + ' – הוסף למטה.</p>' : '');
   $('tasks').querySelectorAll('.task').forEach((el) => el.onclick = (e) => {
     const i = T.tasks.findIndex((t) => t.id === el.dataset.id); if (i < 0) return;
-    if (e.target.dataset.del) T.tasks.splice(i, 1); else { T.tasks[i].done = !T.tasks[i].done; T.tasks[i].doneAt = T.tasks[i].done ? new Date().toISOString() : ''; }
-    pushTasks();
+    if (e.target.dataset.del) { const gone = T.tasks.splice(i, 1)[0]; if (gone && gone.cs && CF.user) cfDelTask((x) => x._bci === gone.id).catch(() => {}); }
+    else { T.tasks[i].done = !T.tasks[i].done; T.tasks[i].doneAt = T.tasks[i].done ? new Date().toISOString() : ''; T.tasks[i].dirty = true; }
+    pushTasks().then(syncTasks);
   });
 }
 async function pushTasks() {
   tasks(); store.set('batchsrv', T);
-  try { await apiPost({ action: 'savebatch', tasks: T.tasks }); say(''); } catch (e) { say('המשימה לא נשמרה בשרת – ' + e.message, true); }
+  try { await apiPost({ action: 'savebatch', tasks: T.tasks.map((t) => { const o = Object.assign({}, t); delete o.dirty; return o; }) }); say(''); } catch (e) { say('המשימה לא נשמרה בשרת – ' + e.message, true); }
 }
-$('tAdd').onclick = () => { const x = $('tNew').value.trim(); if (!x || !VIEW) return; if (!T) return say('הנתונים עוד נטענים – נסה שוב בעוד רגע', true); T.tasks.push({ id: 't' + Date.now(), phase: VIEW.id, text: x, who: $('tWho').value.trim(), done: false, doneAt: '' }); $('tNew').value = ''; pushTasks(); };
+$('tAdd').onclick = () => { const x = $('tNew').value.trim(); if (!x || !VIEW) return; if (!T) return say('הנתונים עוד נטענים – נסה שוב בעוד רגע', true); T.tasks.push({ id: 't' + Date.now(), phase: VIEW.id, text: x, who: $('tWho').value.trim(), done: false, doneAt: '' }); $('tNew').value = ''; pushTasks().then(syncTasks); };
 $('tNew').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('tAdd').click(); });
 
 async function photo(P) {
@@ -223,19 +236,81 @@ function openSetup(editing) {
 }
 $('edit').onclick = () => { openSetup(true); $('setup').scrollIntoView({ behavior: 'smooth' }); };
 $('sCancel').onclick = () => { EDIT = false; $('setup').hidden = true; render(); };
+async function saveCycle(name, start) {
+  const r = await apiPost({ action: 'setgrowcycle', cycle: Object.assign({}, G.cycle, { name, start }) });
+  G.cycle = r.cycle || Object.assign({}, G.cycle, { name, start });
+  ['grow3', 'grow7'].forEach((k) => { const o = store.get(k); if (o) { o.cycle = G.cycle; store.set(k, o); } });   // the kept copies too, so the old date does not come back
+}
 $('sSave').onclick = async () => {
   const start = $('sStart').value, name = $('sName').value.trim(), m = $('sMsg');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(start)) { m.textContent = 'בחר תאריך תחילת פריחה'; m.className = 'msg err'; return; }
   if (!G) { m.textContent = 'הנתונים עוד נטענים – נסה שוב בעוד רגע'; m.className = 'msg err'; return; }
   $('sSave').disabled = true; m.textContent = 'שומר…'; m.className = 'msg';
   try {
-    const r = await apiPost({ action: 'setgrowcycle', cycle: Object.assign({}, G.cycle, { name, start }) });
-    G.cycle = r.cycle || Object.assign({}, G.cycle, { name, start });
-    ['grow3', 'grow7'].forEach((k) => { const o = store.get(k); if (o) { o.cycle = G.cycle; store.set(k, o); } });   // the kept copies too, so the old date does not come back
-    EDIT = false; $('setup').hidden = true; VIEW = null; say('האצווה נשמרה'); render();
+    await saveCycle(name, start);
+    EDIT = false; $('setup').hidden = true; VIEW = null; say('האצווה נשמרה'); render(); cfRender();
   } catch (e) { m.textContent = 'לא נשמר – ' + e.message; m.className = 'msg err'; }
   $('sSave').disabled = false;
 };
+
+/* ---------- CannaFlow: the batch in the gantt, its dates and tasks, two ways ---------- */
+const ddm = (s) => s ? s.slice(8, 10) + '.' + s.slice(5, 7) : '';
+const cfLink = () => (T && T.link) || null;
+function cfRender() {
+  const body = $('cfBody'), st = $('cfState'); if (!body) return;
+  if (!CF.data && CF.starting) { st.textContent = 'מתחבר…'; return; }
+  if (!CF.data) { st.textContent = ''; body.innerHTML = '<p class="muted small" style="margin:0">לא מחובר. <a href="mgmt.html" style="color:var(--accent)">התחבר בדף ניהול ‹</a> – ואז האצווה, התאריכים והמשימות יסונכרנו עם הגאנט.</p>'; return; }
+  st.textContent = CF.user ? (CF.at ? 'עודכן ' + ago(Date.parse(CF.at)) : '') : 'לא מחובר – עותק אחרון';
+  const B = cfBatches(CF.data), L = cfLink(), b = L && B.concat([]).find((x) => x.id === L.batch);
+  if (!L || !b) {
+    body.innerHTML = '<p class="muted small" style="margin:0 0 6px">' + (L ? 'האצווה שחוברה לא נמצאה בגאנט (אולי נמחקה). ' : '') + 'איזו אצווה בגאנט נמצאת בחדר הפריחה הזה?</p>' +
+      (B.length ? B.map((x) => '<div class="cft"><span>' + esc(x.name) + ' <small>' + esc([x.roomName, x.flower ? 'הפרחה ' + ddm(x.flower) : ''].filter(Boolean).join(' · ')) + '</small></span><button class="btn" data-l="' + esc(x.id) + '">חבר</button></div>').join('') : '<p class="muted small">אין אצוות פעילות בגאנט</p>');
+    body.querySelectorAll('[data-l]').forEach((el) => el.onclick = () => { const x = B.find((y) => y.id === el.dataset.l); setLink({ batch: x.id, room: x.room, name: x.name }); });
+    return;
+  }
+  const mine = G && G.cycle && G.cycle.start, theirs = b.flower, diff = mine && theirs && mine !== theirs;
+  const open = b.tasks.filter((t) => !t.done && !t._bci).slice(0, 6);
+  body.innerHTML = '<div class="cfd"><b>' + esc(b.name) + '</b><small class="muted">' + esc(b.roomName) + '</small></div>' +
+    '<div class="cfd">' + (theirs ? 'הפרחה בגאנט: <b>' + ddm(theirs) + '</b>' : '<span class="muted">אין משימת "הפרחה" באצווה בגאנט</span>') + (b.harvest ? ' · קציר <b>' + ddm(b.harvest) + '</b>' : '') + (diff ? ' · <span class="warn">ב-BCI: ' + ddm(mine) + '</span>' : theirs && mine ? ' <span style="color:var(--green)">✓ תואם</span>' : '') + '</div>' +
+    (diff && CF.user ? '<div class="links" style="margin-bottom:6px"><button class="btn primary" id="cfPush">עדכן את הגאנט ל-' + ddm(mine) + '</button><button class="btn" id="cfPull">קח מהגאנט (' + ddm(theirs) + ')</button></div><label class="small muted" style="display:flex;gap:6px;align-items:center;margin-bottom:6px"><input type="checkbox" id="cfShift" checked style="width:auto">להזיז גם את המשימות שאחרי ההפרחה (קציר, ייבוש…) באותם ימים</label>' : '') +
+    (open.length ? '<div class="small muted" style="margin:6px 0 2px">המשימות הבאות של האצווה בגאנט:</div>' + open.map((t) => '<div class="cft"><button class="cb" data-t="' + esc(t.id) + '"></button><span>' + esc(t.name) + ' <small>' + ddm(t.date) + '</small></span></div>').join('') : '') +
+    '<div class="links" style="margin-top:8px"><a class="btn" href="mgmt.html#rooms">כל החדרים ‹</a><button class="btn" id="cfUnlink">נתק</button></div>';
+  const P = $('cfPush'); if (P) P.onclick = async () => { P.disabled = true; try { await cfMoveFlower(b.id, mine, $('cfShift').checked); say('הגאנט עודכן: הפרחה ' + ddm(mine)); } catch (e) { say('לא עודכן – ' + e.message, true); } cfRender(); };
+  const Q = $('cfPull'); if (Q) Q.onclick = async () => { Q.disabled = true; try { await saveCycle((G.cycle && G.cycle.name) || b.name, theirs); VIEW = null; render(); say('תאריך הפריחה עודכן מהגאנט'); } catch (e) { say('לא עודכן – ' + e.message, true); } cfRender(); };
+  $('cfUnlink').onclick = () => setLink(null);
+  body.querySelectorAll('[data-t]').forEach((el) => el.onclick = async () => { el.disabled = true; el.textContent = '✓'; try { await cfSetDone(el.dataset.t, true); say('סומן כבוצע בגאנט ✓'); } catch (e) { say('לא נשמר – ' + e.message, true); } cfRender(); });
+}
+async function setLink(link) {
+  if (!T) return say('הנתונים עוד נטענים – נסה שוב בעוד רגע', true);
+  T.link = link; store.set('batchsrv', T); cfRender();
+  try { await apiPost({ action: 'savebatch', link }); say(link ? 'מחובר ל"' + link.name + '" בגאנט' : 'נותק מהגאנט'); syncTasks(); } catch (e) { say('לא נשמר – ' + e.message, true); }
+}
+/* the phase tasks of BCI live in the gantt too (marked _bci): added there, done/undone both ways, deleted both ways */
+let syncing = false;
+async function syncTasks() {
+  const L = cfLink(); if (syncing || !L || !T || !CF.user || !CF.data) return;
+  syncing = true; let changed = false;
+  try {
+    for (const t of T.tasks.slice()) {
+      const c = (CF.data.tasks || []).find((x) => x._bci === t.id), ph = RECIPE.find((p) => p.id === t.phase);
+      if (!c) {
+        if (t.cs) { T.tasks = T.tasks.filter((x) => x !== t); changed = true; continue; }        // deleted in the gantt
+        await cfAddTask({ _bci: t.id, name: t.text, dept: 'grow', room: L.room, growRoom: L.room, batch: L.batch, done: !!t.done, note: 'BCI · שלב ' + (ph ? ph.name : t.phase) + (t.who ? ' · ' + t.who : '') });
+        t.cs = true; delete t.dirty; changed = true; continue;
+      }
+      if (!!c.done !== !!t.done) {
+        if (t.dirty || !t.cs) await cfSetDone(c.id, t.done);                                          // changed here
+        else { t.done = !!c.done; t.doneAt = c.done ? (c.doneAt || new Date().toISOString()) : ''; }  // changed in the gantt
+        changed = true;
+      }
+      if (!t.cs || t.dirty) { t.cs = true; delete t.dirty; changed = true; }
+    }
+  } catch (e) { say('הסנכרון לגאנט נכשל – ' + e.message, true); }
+  syncing = false;
+  if (changed) { await pushTasks(); }
+}
+cfOn(() => { cfRender(); syncTasks(); });
+CF.starting = true; cfStart().then(() => { CF.starting = false; cfRender(); syncTasks(); });
 
 async function loadAll() {
   $('refresh').classList.add('spin');
@@ -243,7 +318,7 @@ async function loadAll() {
   const keep = (j) => { if (EDIT && G && j) j.cycle = j.cycle || G.cycle; G = j; render(); };
   await Promise.all([
     (() => { const h = getRange(); return h > 168 ? api('action=grow&days=30').then(keep).catch((e) => err(e, false)) : h > 48 ? cached('grow7', 'action=grow&days=7', keep, err) : cached('grow3', 'action=grow&days=3', keep, err); })(),
-    cached('batchsrv', 'action=batch', (j) => { T = j; side(); }, () => {}),
+    cached('batchsrv', 'action=batch', (j) => { if (T) j.tasks.forEach((t) => { const o = T.tasks.find((x) => x.id === t.id); if (o && o.dirty) Object.assign(t, { done: o.done, doneAt: o.doneAt, dirty: true }); }); T = j; side(); cfRender(); syncTasks(); }, () => {}),
     cached('fertsrv', 'action=fert', (j) => { F = j; side(); }, () => {}),
     cached('growphotos', 'action=growphotos&days=7', (j) => { GP = j; render(); }, () => {}),
   ]);
