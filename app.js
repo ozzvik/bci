@@ -216,7 +216,7 @@ function spark(vals, color) {
 function ktile(label, color, value, unit, target, vals, st, sub) {
   return '<div class="k ' + (st || '') + '"><div class="l"><span class="dot" style="background:' + color + '"></span>' + label + '</div><div class="v">' + value + (unit ? '<small>' + unit + '</small>' : '') + '</div><div class="t">' + (target || '&nbsp;') + '</div>' + (vals ? spark(vals, color) : '') + (sub ? '<div class="s">' + sub + '</div>' : '') + '</div>';
 }
-const legend = (a, w) => '<div class="lg2">' + [['VPD', COL.vpd, a ? fmt(a.vpd, 2) : '—'], ['טמפ׳', COL.temp, a ? fmt(a.temp, 1) + '°' : '—'], ['לחות', COL.rh, a ? fmt(a.rh) + '%' : '—'], ['משקל', COL.w, w != null ? fmt(w) + 'g' : '—'], ['השקיה', COL.irr, '']].map((x) => '<span><i class="dot" style="background:' + x[1] + '"></i>' + x[0] + (x[2] ? ' <b>' + x[2] + '</b>' : '') + '</span>').join('') + '</div>';
+const legend = (a, w, when) => '<div class="lg2">' + (when ? '<span class="when">' + when + '</span>' : '') + [['VPD', COL.vpd, a ? fmt(a.vpd, 2) : '—'], ['טמפ׳', COL.temp, a ? fmt(a.temp, 1) + '°' : '—'], ['לחות', COL.rh, a ? fmt(a.rh) + '%' : '—'], ['משקל', COL.w, w != null ? fmt(w) + 'g' : '—'], ['השקיה', COL.irr, '']].map((x) => '<span><i class="dot" style="background:' + x[1] + '"></i>' + x[0] + (x[2] ? ' <b>' + x[2] + '</b>' : '') + '</span>').join('') + '</div>';
 
 /** One chart of everything: VPD, temperature, humidity and the plant weight on one time line (each on its own scale),
     the green band = the VPD target, blue dots = irrigations, the shaded parts = night. o: {t0,t1,air,wpts,ev,band,height} */
@@ -241,20 +241,19 @@ function multiChart(el, o) {
   for (let t = first.getTime(), k = 0; t <= o.t1; t += stepH * 3600000) { const d = new Date(t); if (stepH === 24 && (k++ % every)) continue; s += '<text x="' + X(t).toFixed(1) + '" y="' + (H - 5) + '" text-anchor="middle">' + (d.getHours() === 0 || stepH === 24 ? dm(t) : hm(t)) + '</text>'; }
   (o.ev || []).filter((e) => e.peakT >= o.t0 && e.peakT <= o.t1).forEach((e) => { const x = X(e.peakT).toFixed(1); s += '<line x1="' + x + '" x2="' + x + '" y1="' + T + '" y2="' + (H - B) + '" stroke="' + COL.irr + '" stroke-opacity=".3" stroke-dasharray="3 3"/><circle cx="' + x + '" cy="' + (T - 4) + '" r="3.5" fill="' + COL.irr + '"/>'; });
   S.forEach((se) => { let d = '', prev = null; thin(se.pts, 600).forEach((p) => { if (p[1] == null || !isFinite(p[1])) return; d += (!prev || p[0] - prev > 45 * 60000 ? 'M' : 'L') + X(p[0]).toFixed(1) + ',' + Y(p[1], se.r).toFixed(1); prev = p[0]; }); if (d) s += '<path d="' + d + '" fill="none" stroke="' + se.c + '" stroke-width="' + se.w + '" stroke-linejoin="round"/>'; });
-  s += '<line class="cx" y1="' + T + '" y2="' + (H - B) + '" stroke="var(--muted)" stroke-dasharray="3 3" style="display:none"/><rect x="' + L + '" y="0" width="' + (W - L - R) + '" height="' + H + '" fill="transparent"/></svg><div class="tip" style="display:none"></div>';
+  s += '<line class="cx" y1="' + T + '" y2="' + (H - B) + '" stroke="var(--muted)" stroke-dasharray="3 3" style="display:none"/><rect x="' + L + '" y="0" width="' + (W - L - R) + '" height="' + H + '" fill="transparent"/></svg>';
   el.innerHTML = air.length || wp.length ? s : '<p class="muted small" style="padding:30px 0;text-align:center">אין נתונים בטווח הזה</p>';
   const svg = el.querySelector('svg'); if (!svg) return;
-  const hit = svg.lastChild, cx = svg.querySelector('.cx'), tip = el.querySelector('.tip');
+  const hit = svg.lastChild, cx = svg.querySelector('.cx');
   const near = (a, t) => { let b = null, bd = Infinity; for (let i = 0; i < a.length; i++) { const d = Math.abs(a[i].t - t); if (d < bd) { bd = d; b = a[i]; } } return bd < 60 * 60000 ? b : null; };
+  // the values under the finger are shown in the legend above the chart (o.lg) – nothing floats over the lines
   const mv = (ev) => {
     const r = svg.getBoundingClientRect(), px = ((ev.touches ? ev.touches[0].clientX : ev.clientX) - r.left) * W / r.width, t = o.t0 + (px - L) / (W - L - R) * (o.t1 - o.t0), a = near(air, t), w = near(wp, t);
     if (!a && !w) return; const x = X((a || w).t);
     cx.setAttribute('x1', x); cx.setAttribute('x2', x); cx.style.display = '';
-    const row = (c, n, v) => '<div><i class="dot" style="background:' + c + '"></i> ' + n + ' <b class="num">' + v + '</b></div>';
-    tip.innerHTML = '<div class="muted small">' + dm((a || w).t) + ' ' + hm((a || w).t) + '</div>' + (a ? row(COL.vpd, 'VPD', fmt(a.vpd, 2)) + row(COL.temp, 'טמפ׳', fmt(a.temp, 1) + '°') + row(COL.rh, 'לחות', fmt(a.rh) + '%') : '') + (w ? row(COL.w, 'משקל', fmt(w.w) + ' g') + (w.db != null ? row(COL.w, 'ייבוש', fmt(w.db, 1) + '%') : '') : '');
-    tip.style.display = ''; tip.style.left = Math.min(r.width - tip.offsetWidth - 4, Math.max(0, x * r.width / W + 12)) + 'px';
+    if (o.lg) o.lg.innerHTML = legend(a, w ? w.w : null, dm((a || w).t) + ' ' + hm((a || w).t));
   };
-  const out = () => { cx.style.display = 'none'; tip.style.display = 'none'; };
+  const out = () => { cx.style.display = 'none'; if (o.lg && o.lgHtml != null) o.lg.innerHTML = o.lgHtml; };
   hit.addEventListener('mousemove', mv); hit.addEventListener('touchmove', mv, { passive: true }); hit.addEventListener('touchstart', mv, { passive: true });
   hit.addEventListener('mouseleave', out); hit.addEventListener('touchend', () => setTimeout(out, 2500));
 }
@@ -271,4 +270,11 @@ function rangeSeg(el, opts, onChange) {
   const el = document.createElement('aside'); el.className = 'side';
   el.innerHTML = '<img src="icon-192.png" alt="">' + items.map((i) => '<a' + (i[2] ? ' href="' + esc(i[2]) + '"' : '') + ' data-t="' + i[1] + '" class="' + (i[3].indexOf(pg) >= 0 ? 'on' : '') + (i[2] ? '' : ' off') + '">' + i[0] + '</a>').join('');
   document.body.appendChild(el); document.body.classList.add('has-side');
+})();
+
+/* number fields: the phone shows its numeric keypad, and a tap selects the old value so typing replaces it */
+(function () {
+  const fix = (root) => (root.querySelectorAll ? root.querySelectorAll('input[type="number"]:not([inputmode])') : []).forEach((i) => i.setAttribute('inputmode', 'decimal'));
+  fix(document); new MutationObserver((ms) => ms.forEach((m) => m.addedNodes.forEach((n) => { if (n.nodeType === 1) { if (n.matches && n.matches('input[type="number"]:not([inputmode])')) n.setAttribute('inputmode', 'decimal'); fix(n); } }))).observe(document.body, { childList: true, subtree: true });
+  document.addEventListener('focusin', (e) => { const t = e.target; if (t && t.matches && t.matches('input[type="number"]')) setTimeout(() => { try { t.select(); } catch (err) {} }, 0); });
 })();
