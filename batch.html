@@ -23,7 +23,6 @@
   .task b { flex: 1; font-size: 14px; } .task b small { display: block; color: var(--muted); font-weight: 500; font-size: 11.5px; text-decoration: none; }
   .task .x { color: var(--faint); font-size: 16px; padding: 0 4px; }
   #tNew, #tWho { font: inherit; color: var(--ink); background: var(--card2); border: 1px solid var(--line); border-radius: 10px; padding: 9px 10px; min-width: 0; }
-  .setup input { font: inherit; color: var(--ink); background: var(--card2); border: 1px solid var(--line); border-radius: 10px; padding: 9px 10px; }
 </style>
 </head>
 <body>
@@ -35,15 +34,16 @@
 </header>
 
 <main class="wrap">
-  <!-- no start date yet -->
+  <!-- name + start of flowering: shown when missing, or when "edit" is pressed -->
   <div class="card setup" id="setup" hidden>
-    <h2>הגדרת האצווה</h2>
-    <p class="muted small" style="margin-top:0">כדי לדעת באיזה שלב האצווה ומה היעדים שלה צריך שם ותאריך תחילת פריחה.</p>
+    <h2 id="sTitle">הגדרת האצווה</h2>
+    <p class="muted small" style="margin-top:0" id="sHint">כדי לדעת באיזה שלב האצווה ומה היעדים שלה צריך שם ותאריך תחילת פריחה.</p>
     <div class="form">
-      <label>שם האצווה / זן<input id="sName" placeholder="OG Kush · אצווה 12"></label>
-      <label>תחילת פריחה<input id="sStart" type="date"></label>
-      <button class="btn primary" id="sSave">שמור</button>
+      <label style="flex:1 1 180px">שם האצווה / זן<input id="sName" placeholder="OG Kush · אצווה 12" style="direction:rtl;text-align:start"></label>
+      <label style="flex:1 1 150px">תחילת פריחה<input id="sStart" type="date"></label>
+      <button class="btn primary" id="sSave">שמור</button><button class="btn" id="sCancel" hidden>ביטול</button>
     </div>
+    <div class="msg" id="sMsg"></div>
   </div>
 
   <div id="main" hidden>
@@ -54,21 +54,33 @@
         <div class="rt"><b>חי מול יעד השלב</b><span id="when"></span><span class="fl"></span><span class="seg rng" id="rng"></span></div>
         <div id="lg"></div>
         <div class="chart" id="big"></div>
-        <div class="muted small" style="margin-top:4px">הפס הירוק = טווח היעד ל-VPD בשלב · נקודות כחולות = השקיות</div>
+        <div class="muted small" style="margin-top:4px">הפס הירוק = טווח היעד ל-VPD בשלב · נקודות כחולות = השקיות · גע בגרף לערכים באותו רגע</div>
       </div>
       <div>
-        <a class="room fertc" id="fertCard" href="fert.html">
-          <div class="rt"><b>💧 דישון לשלב</b><span class="fl"></span><span id="fEC"></span></div>
+        <div class="muted small" id="viewing" style="margin:0 4px 8px" hidden></div>
+        <!-- fertigation of the phase: the program of the calculator, or the values set for this batch -->
+        <div class="room fertc">
+          <div class="rt"><b>💧 דישון לשלב</b><span class="tag" id="fTag" hidden>מותאם לאצווה</span><span class="fl"></span><span id="fEC"></span></div>
           <div class="chips" id="fChips"></div>
-          <div class="small" style="margin-top:9px;color:var(--cyan);font-weight:700">ל׳ לקוב מים · פתח במחשבון ‹</div>
-        </a>
+          <div class="small muted" id="fNoteView" style="margin-top:8px;white-space:pre-wrap"></div>
+          <div id="fEdit" hidden>
+            <div class="injed" id="fInj"></div>
+            <textarea class="note" id="fNote" placeholder="הערה לדישון של השלב הזה באצווה (למשל: להוריד B בשבוע האחרון)"></textarea>
+            <div class="links" style="margin-top:8px"><button class="btn primary" id="fSave">שמור לאצווה</button><button class="btn" id="fReset">חזור לתוכנית</button><button class="btn" id="fCancel">ביטול</button></div>
+          </div>
+          <div class="links" id="fBtns" style="margin-top:9px"><button class="btn" id="fAdj">✏️ התאם לאצווה</button><a class="btn" id="fCalc" href="fert.html">פתח במחשבון ‹</a></div>
+        </div>
+        <div class="room">
+          <div class="rt"><b>📝 הערות לשלב</b><span class="fl"></span><span id="nState"></span></div>
+          <textarea class="note" id="nText" placeholder="מה חשוב לזכור בשלב הזה באצווה הזאת"></textarea>
+        </div>
         <div class="room">
           <div class="rt"><b>📋 משימות השלב</b><span class="fl"></span><span id="tCount"></span></div>
           <div id="tasks"></div>
           <div class="form" style="margin-top:8px"><input id="tNew" placeholder="משימה חדשה לשלב הזה" style="flex:1"><input id="tWho" placeholder="מי" style="width:70px"><button class="btn" id="tAdd">הוסף</button></div>
         </div>
         <div class="photo" id="photo"><div class="empty">אין תמונה</div></div>
-        <div class="links"><a class="btn" href="grow.html">📈 גרפים מפורטים</a><a class="btn" href="photos.html">🎬 תמונות</a><button class="btn" id="edit">✏️ פרטי האצווה</button></div>
+        <div class="links"><a class="btn" href="grow.html">📈 גרפים מפורטים</a><a class="btn" href="photos.html">🎬 תמונות</a><button class="btn" id="edit">✏️ שם ותאריך האצווה</button></div>
         <p class="muted small" id="note" style="margin-top:10px"></p>
       </div>
     </div>
@@ -79,20 +91,32 @@
 <script src="app.js"></script>
 <script>
 $('refresh').innerHTML = ICON.refresh; $('back').innerHTML = ICON.back;
-
-let G = null, F = null, GP = null, T = null, PH = null;
+let G = null, F = null, GP = null, T = null;      // grow data, fertigation programs, photos, batch store (tasks, notes, fert)
+let PH = null, VIEW = null;                        // the phase the batch is in now, and the phase whose notes/tasks/fertigation are shown
+let EDIT = false, FEDIT = false;                   // the name/date form and the fertigation form are open – a refresh must not touch them
 const getRange = rangeSeg($('rng'), [[24, '24 שע׳'], [48, 'יומיים'], [168, '7 ימים'], [720, '30 יום']], () => loadAll());
+const say = (t, bad) => { $('msg').textContent = t || ''; $('msg').className = 'msg' + (bad ? ' err' : ''); };
+const stockName = (k) => k === 'ACID' ? 'חומצה' : k;
 
 function render() {
   if (!G) return;
   const c = G.cycle || {}, po = phaseOf(c);
   $('title').textContent = c.name || 'אצווה';
-  if (!po) { $('setup').hidden = false; $('main').hidden = true; $('pill').hidden = true; $('sub').textContent = 'חסר תאריך תחילת פריחה'; $('sName').value = c.name || ''; $('sStart').value = c.start || ''; return; }
-  $('setup').hidden = true; $('main').hidden = false;
+  if (!po) {                                       // no start date (or it is in the future): only the form
+    const future = c.start && cycleDay(c, Date.now()) < 1;
+    $('main').hidden = true; $('pill').hidden = true;
+    $('sub').textContent = future ? 'הפריחה מתחילה ב-' + c.start.split('-').reverse().join('.') : 'חסר תאריך תחילת פריחה';
+    if (!EDIT) openSetup(false);
+    return;
+  }
+  if (!EDIT) $('setup').hidden = true;
+  $('main').hidden = false;
   const ph = po.ph, week = po.week;
-  $('sub').textContent = 'חדר פריחה · יום ' + po.day + ' · שבוע ' + week;
-  PH = ph; $('pill').textContent = ph.en; $('pill').hidden = false;
-  $('phases').innerHTML = RECIPE.map((p) => '<div style="flex:' + (Math.min(p.to, 9) - p.from + 1) + '" class="' + (p === ph ? 'on' : week > p.to ? 'done' : '') + '">' + p.name + (p === ph ? ' · שבוע ' + week : '') + '</div>').join('');
+  $('sub').textContent = 'יום ' + po.day + ' · שבוע ' + week + ' · פריחה מ-' + c.start.slice(8) + '.' + c.start.slice(5, 7);
+  PH = ph; if (!VIEW) VIEW = ph;
+  $('pill').textContent = ph.en; $('pill').hidden = false;
+  $('phases').innerHTML = RECIPE.map((p) => '<div data-p="' + p.id + '" style="flex:' + (Math.min(p.to, 9) - p.from + 1) + '" class="' + (p === ph ? 'on' : week > p.to ? 'done' : '') + (p === VIEW && p !== ph ? ' sel' : '') + '">' + p.name + '</div>').join('');
+  $('phases').querySelectorAll('div').forEach((d) => d.onclick = () => { if (FEDIT) return; VIEW = RECIPE.find((p) => p.id === d.dataset.p); render(); });
 
   const P = plantNow(G.points || [], c), a = P.airNow, fresh = a && Date.now() - a.t < 30 * 60000;
   const h = getRange(), t1 = Date.now(), t0 = t1 - h * 3600000, air = P.air.filter((p) => p.t >= t0), wp = P.A.pts.filter((p) => p.t >= t0);
@@ -106,34 +130,70 @@ function render() {
     ktile('EC מצע', COL.rh, '—', '', '', null, 'off', 'אין חיישן מצע עדיין'),
     ktile('משקל', COL.w, P.w != null ? fmt(P.w) : '—', 'g', P.full ? 'מלא ' + fmt(P.full) : '', wp.map((p) => p.w), P.w != null ? '' : 'off', P.speed != null ? fmt(P.speed) + ' g/h' : ''),
   ].join('');
-  $('lg').innerHTML = legend(fresh ? a : null, P.w);
-  multiChart($('big'), { t0, t1, air: P.air, wpts: P.A.pts, ev: P.A.ev, band: ph.vpd, height: window.innerWidth >= 900 ? 300 : 200 });
+  const lgHtml = legend(fresh ? a : null, P.w); $('lg').innerHTML = lgHtml;
+  multiChart($('big'), { lg: $('lg'), lgHtml, t0, t1, air: P.air, wpts: P.A.pts, ev: P.A.ev, band: ph.vpd, height: window.innerWidth >= 900 ? 300 : 200 });
+  $('note').textContent = 'יעדי האקלים והייבוש של כל שלב הם ערכי התחלה כלליים. הדישון בא מהתוכנית שבמחשבון, אלא אם התאמת אותו לאצווה.';
+  side(); photo(P);
+}
 
-  // fertigation of this phase (the program with the same id in the calculator)
-  const pr = F && (F.programs || []).find((p) => p.id === ph.id);
-  $('fertCard').href = 'fert.html#' + ph.id;
-  if (pr) {
-    $('fEC').textContent = pr.name + (pr.targetEC ? ' · EC ' + fmt(pr.targetEC, 1) : '');
-    $('fChips').innerHTML = Object.keys(pr.inj || {}).filter((k) => pr.inj[k] > 0).map((k) => '<span class="chip"><span>' + esc(k === 'ACID' ? 'חומצה' : k) + '</span>' + fmt(pr.inj[k], 2) + '</span>').join('');
-  } else { $('fEC').textContent = ''; $('fChips').innerHTML = '<span class="muted small">' + (ph.id === 'flush' ? 'שטיפה – מים בלבד' : F ? 'אין תוכנית דישון לשלב הזה – אפשר ליצור במחשבון' : 'טוען…') + '</span>'; }
-
+/* the cards of the chosen phase: fertigation, notes, tasks */
+function side() {
+  if (!VIEW) return;
+  const v = VIEW;
+  $('viewing').hidden = v === PH; $('viewing').innerHTML = v === PH ? '' : 'מוצג השלב <b>' + v.name + '</b> (שבוע ' + v.from + (v.to > v.from && v.to < 99 ? '–' + v.to : v.to >= 99 ? '+' : '') + ') · <a href="#" id="backNow" style="color:var(--accent)">חזרה לשלב הנוכחי</a>';
+  const bn = $('backNow'); if (bn) bn.onclick = (e) => { e.preventDefault(); VIEW = PH; render(); };
+  // fertigation: the values of this batch if set, else the program with the same id in the calculator
+  const pr = F && (F.programs || []).find((p) => p.id === v.id), own = T && T.fert && T.fert[v.id];
+  const inj = own ? own.inj : pr ? pr.inj : null;
+  $('fCalc').href = 'fert.html#' + v.id; $('fTag').hidden = !own;
+  $('fEC').innerHTML = pr ? '<bdi>' + esc(pr.name) + '</bdi>' + (pr.targetEC && !own ? ' · EC ' + fmt(pr.targetEC, 1) : '') : '';
+  if (!FEDIT) {
+    $('fChips').innerHTML = inj ? Object.keys(inj).filter((k) => inj[k] > 0).map((k) => '<span class="chip"><span>' + esc(stockName(k)) + '</span>' + fmt(inj[k], 2) + '</span>').join('') + '<span class="muted small" style="align-self:center">ל׳ לקוב</span>'
+      : '<span class="muted small">' + (v.id === 'flush' ? 'שטיפה – מים בלבד' : F ? 'אין תוכנית דישון לשלב הזה – אפשר ליצור במחשבון או להתאים לאצווה' : 'טוען…') + '</span>';
+    $('fNoteView').textContent = own && own.note ? '📝 ' + own.note : '';
+  }
+  // notes: do not overwrite what is being typed
+  if (document.activeElement !== $('nText')) $('nText').value = (T && T.notes && T.notes[v.id]) || '';
+  $('nText').disabled = !T; $('nText').placeholder = 'מה חשוב לזכור בשלב ' + v.name + ' באצווה הזאת';
   tasks();
-  $('note').textContent = 'יעדי האקלים והייבוש של כל שלב הם ערכי התחלה כלליים. יעדי הדישון באים מהתוכניות ששמורות במחשבון.';
-  photo(P);
-}
-async function photo(P) {
-  if (!GP) return; const n = await newestPhoto(GP); if (!n) return;
-  const a = P.airNow, ch = (k, v) => '<span class="chip"><span>' + k + '</span>' + v + '</span>';
-  $('photo').innerHTML = '<img src="' + n.src + '" alt=""><div class="ov">' + ch('🕒', hm(Date.parse(n.at)) + ' · ' + ago(Date.parse(n.at))) + (a ? ch('T', fmt(a.temp, 1) + '°') + ch('RH', fmt(a.rh) + '%') + ch('VPD', fmt(a.vpd, 2)) : '') + (P.w != null ? ch('⚖', fmt(P.w) + ' g') : '') + '</div>';
-  $('photo').querySelector('img').onclick = () => lightbox(n.src, dm(Date.parse(n.at)) + ' ' + hm(Date.parse(n.at)));
 }
 
-/* the tasks of the current phase – kept in the server, the same on every device */
+/* fertigation set for this batch in this phase */
+function stocksList() { const S = (F && F.stocks) || []; return S.length ? S.map((s) => s.id) : ['A', 'B', 'C', 'D', 'E', 'ACID']; }
+$('fAdj').onclick = () => {
+  if (!T) return say('הנתונים עוד נטענים – נסה שוב בעוד רגע', true);
+  const v = VIEW, pr = F && (F.programs || []).find((p) => p.id === v.id), own = T.fert && T.fert[v.id], inj = (own && own.inj) || (pr && pr.inj) || {};
+  $('fInj').innerHTML = stocksList().map((k) => '<label>' + esc(stockName(k)) + ' · ל׳/קוב<input type="number" inputmode="decimal" step="0.01" min="0" data-k="' + esc(k) + '" value="' + (inj[k] != null ? inj[k] : 0) + '"></label>').join('');
+  $('fNote').value = (own && own.note) || '';
+  FEDIT = true; $('fEdit').hidden = false; $('fBtns').hidden = true; $('fChips').innerHTML = ''; $('fNoteView').textContent = ''; $('fReset').hidden = !own;
+};
+const closeFert = () => { FEDIT = false; $('fEdit').hidden = true; $('fBtns').hidden = false; side(); };
+$('fCancel').onclick = closeFert;
+async function pushFertOwn(val, okMsg) {
+  const k = VIEW.id; T.fert = T.fert || {}; if (val) T.fert[k] = val; else delete T.fert[k];
+  store.set('batchsrv', T); closeFert();
+  try { const o = {}; o[k] = val; await apiPost({ action: 'savebatch', fert: o }); say(okMsg); } catch (e) { say('לא נשמר בשרת – ' + e.message, true); }
+}
+$('fSave').onclick = () => { const inj = {}; $('fInj').querySelectorAll('input').forEach((i) => inj[i.dataset.k] = Math.max(0, Number(i.value) || 0)); pushFertOwn({ inj, note: $('fNote').value.trim() }, 'הדישון לשלב ' + VIEW.name + ' נשמר לאצווה'); };
+$('fReset').onclick = () => pushFertOwn(null, 'חזר לתוכנית שבמחשבון');
+
+/* notes of the phase – saved a moment after the typing stops */
+let nTimer;
+async function pushNote() {
+  if (!T || !VIEW) return; const k = VIEW.id, v = $('nText').value.trim();
+  T.notes = T.notes || {}; if (v) T.notes[k] = v; else delete T.notes[k]; store.set('batchsrv', T);
+  $('nState').textContent = 'שומר…';
+  try { const o = {}; o[k] = v; await apiPost({ action: 'savebatch', notes: o }); $('nState').textContent = 'נשמר ✓'; } catch (e) { $('nState').textContent = 'לא נשמר'; say('ההערה לא נשמרה בשרת – ' + e.message, true); }
+}
+$('nText').addEventListener('input', () => { $('nState').textContent = ''; clearTimeout(nTimer); nTimer = setTimeout(pushNote, 1200); });
+$('nText').addEventListener('blur', () => { if (nTimer) { clearTimeout(nTimer); nTimer = null; pushNote(); } });
+
+/* the tasks of the phase – kept in the server, the same on every device */
 function tasks() {
-  if (!PH) return;
-  const L = ((T && T.tasks) || []).filter((t) => t.phase === PH.id), open = L.filter((t) => !t.done).length;
+  if (!VIEW) return;
+  const L = ((T && T.tasks) || []).filter((t) => t.phase === VIEW.id), open = L.filter((t) => !t.done).length;
   $('tCount').textContent = T ? (L.length ? open + ' פתוחות מתוך ' + L.length : '') : 'טוען…';
-  $('tasks').innerHTML = L.length ? L.map((t) => '<div class="task' + (t.done ? ' done' : '') + '" data-id="' + esc(t.id) + '"><span class="cb">' + (t.done ? '✓' : '') + '</span><b>' + esc(t.text) + '<small>' + esc([t.done ? 'בוצע' + (t.doneAt ? ' ' + dm(Date.parse(t.doneAt)) : '') : '', t.who].filter(Boolean).join(' · ')) + '</small></b><button class="x" data-del="1" aria-label="מחק">✕</button></div>').join('') : (T ? '<p class="muted small" style="margin:2px 4px 8px">אין משימות לשלב ' + esc(PH.name) + ' – הוסף למטה.</p>' : '');
+  $('tasks').innerHTML = L.length ? L.map((t) => '<div class="task' + (t.done ? ' done' : '') + '" data-id="' + esc(t.id) + '"><span class="cb">' + (t.done ? '✓' : '') + '</span><b>' + esc(t.text) + '<small>' + esc([t.done ? 'בוצע' + (t.doneAt ? ' ' + dm(Date.parse(t.doneAt)) : '') : '', t.who].filter(Boolean).join(' · ')) + '</small></b><button class="x" data-del="1" aria-label="מחק">✕</button></div>').join('') : (T ? '<p class="muted small" style="margin:2px 4px 8px">אין משימות לשלב ' + esc(VIEW.name) + ' – הוסף למטה.</p>' : '');
   $('tasks').querySelectorAll('.task').forEach((el) => el.onclick = (e) => {
     const i = T.tasks.findIndex((t) => t.id === el.dataset.id); if (i < 0) return;
     if (e.target.dataset.del) T.tasks.splice(i, 1); else { T.tasks[i].done = !T.tasks[i].done; T.tasks[i].doneAt = T.tasks[i].done ? new Date().toISOString() : ''; }
@@ -142,35 +202,58 @@ function tasks() {
 }
 async function pushTasks() {
   tasks(); store.set('batchsrv', T);
-  try { await apiPost({ action: 'savebatch', tasks: T.tasks }); $('msg').textContent = ''; }
-  catch (e) { $('msg').textContent = 'המשימה לא נשמרה בשרת – ' + e.message; $('msg').className = 'msg err'; }
+  try { await apiPost({ action: 'savebatch', tasks: T.tasks }); say(''); } catch (e) { say('המשימה לא נשמרה בשרת – ' + e.message, true); }
 }
-$('tAdd').onclick = () => { const x = $('tNew').value.trim(); if (!x || !PH || !T) return; T.tasks.push({ id: 't' + Date.now(), phase: PH.id, text: x, who: $('tWho').value.trim(), done: false, doneAt: '' }); $('tNew').value = ''; pushTasks(); };
+$('tAdd').onclick = () => { const x = $('tNew').value.trim(); if (!x || !VIEW) return; if (!T) return say('הנתונים עוד נטענים – נסה שוב בעוד רגע', true); T.tasks.push({ id: 't' + Date.now(), phase: VIEW.id, text: x, who: $('tWho').value.trim(), done: false, doneAt: '' }); $('tNew').value = ''; pushTasks(); };
 $('tNew').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('tAdd').click(); });
 
-async function saveCycle(name, start) {
-  const c = Object.assign({}, G.cycle, { name, start });
-  await apiPost({ action: 'setgrowcycle', cycle: c });
-  G.cycle = c; render();
+async function photo(P) {
+  if (!GP) return; const n = await newestPhoto(GP); if (!n) return;
+  const a = P.airNow, ch = (k, v) => '<span class="chip"><span>' + k + '</span>' + v + '</span>';
+  $('photo').innerHTML = '<img src="' + n.src + '" alt=""><div class="ov">' + ch('🕒', hm(Date.parse(n.at)) + ' · ' + ago(Date.parse(n.at))) + (a ? ch('T', fmt(a.temp, 1) + '°') + ch('RH', fmt(a.rh) + '%') + ch('VPD', fmt(a.vpd, 2)) : '') + (P.w != null ? ch('⚖', fmt(P.w) + ' g') : '') + '</div>';
+  $('photo').querySelector('img').onclick = () => lightbox(n.src, dm(Date.parse(n.at)) + ' ' + hm(Date.parse(n.at)));
 }
-$('sSave').onclick = async () => { const s = $('sStart').value; if (!s) { $('msg').textContent = 'בחר תאריך תחילת פריחה'; return; } try { await saveCycle($('sName').value.trim(), s); $('msg').textContent = ''; } catch (e) { $('msg').textContent = e.message; $('msg').className = 'msg err'; } };
-$('edit').onclick = () => { $('sName').value = G.cycle.name || ''; $('sStart').value = G.cycle.start || ''; $('setup').hidden = false; $('setup').scrollIntoView({ behavior: 'smooth' }); };
+
+/* name + start of flowering. The fields are filled only when the form opens, so a refresh in the middle never wipes what was typed */
+function openSetup(editing) {
+  const c = (G && G.cycle) || {};
+  if ($('setup').hidden || editing) { $('sName').value = c.name || ''; $('sStart').value = c.start || ''; $('sMsg').textContent = ''; }
+  $('sTitle').textContent = editing ? 'שם ותאריך האצווה' : 'הגדרת האצווה';
+  $('sHint').hidden = editing; $('sCancel').hidden = !editing; $('setup').hidden = false; EDIT = true;
+}
+$('edit').onclick = () => { openSetup(true); $('setup').scrollIntoView({ behavior: 'smooth' }); };
+$('sCancel').onclick = () => { EDIT = false; $('setup').hidden = true; render(); };
+$('sSave').onclick = async () => {
+  const start = $('sStart').value, name = $('sName').value.trim(), m = $('sMsg');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(start)) { m.textContent = 'בחר תאריך תחילת פריחה'; m.className = 'msg err'; return; }
+  if (!G) { m.textContent = 'הנתונים עוד נטענים – נסה שוב בעוד רגע'; m.className = 'msg err'; return; }
+  $('sSave').disabled = true; m.textContent = 'שומר…'; m.className = 'msg';
+  try {
+    const r = await apiPost({ action: 'setgrowcycle', cycle: Object.assign({}, G.cycle, { name, start }) });
+    G.cycle = r.cycle || Object.assign({}, G.cycle, { name, start });
+    ['grow3', 'grow7'].forEach((k) => { const o = store.get(k); if (o) { o.cycle = G.cycle; store.set(k, o); } });   // the kept copies too, so the old date does not come back
+    EDIT = false; $('setup').hidden = true; VIEW = null; say('האצווה נשמרה'); render();
+  } catch (e) { m.textContent = 'לא נשמר – ' + e.message; m.className = 'msg err'; }
+  $('sSave').disabled = false;
+};
 
 async function loadAll() {
   $('refresh').classList.add('spin');
-  const err = (e, had) => { $('msg').textContent = (had ? 'מוצגים הנתונים האחרונים שנשמרו · ' : '') + e.message; $('msg').className = 'msg err'; };
+  const err = (e, had) => say((had ? 'מוצגים הנתונים האחרונים שנשמרו · ' : '') + e.message, true);
+  const keep = (j) => { if (EDIT && G && j) j.cycle = j.cycle || G.cycle; G = j; render(); };
   await Promise.all([
-    (() => { const h = getRange(), cb = (j) => { G = j; render(); }; return h > 168 ? api('action=grow&days=30').then(cb).catch((e) => err(e, false)) : h > 48 ? cached('grow7', 'action=grow&days=7', cb, err) : cached('grow3', 'action=grow&days=3', cb, err); })(),
-    cached('batchsrv', 'action=batch', (j) => { T = j; tasks(); }, () => {}),
-    cached('fertsrv', 'action=fert', (j) => { F = j; render(); }, () => {}),
+    (() => { const h = getRange(); return h > 168 ? api('action=grow&days=30').then(keep).catch((e) => err(e, false)) : h > 48 ? cached('grow7', 'action=grow&days=7', keep, err) : cached('grow3', 'action=grow&days=3', keep, err); })(),
+    cached('batchsrv', 'action=batch', (j) => { T = j; side(); }, () => {}),
+    cached('fertsrv', 'action=fert', (j) => { F = j; side(); }, () => {}),
     cached('growphotos', 'action=growphotos&days=7', (j) => { GP = j; render(); }, () => {}),
   ]);
   $('refresh').classList.remove('spin');
 }
 $('refresh').onclick = loadAll;
 loadAll();
-let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(render, 200); });
-setInterval(() => { if (!document.hidden) loadAll(); }, 5 * 60000);
+let rz, lastW = window.innerWidth;                 // only a change of width redraws (the keyboard opening changes the height only)
+window.addEventListener('resize', () => { if (window.innerWidth === lastW) return; lastW = window.innerWidth; clearTimeout(rz); rz = setTimeout(render, 200); });
+setInterval(() => { if (!document.hidden && !EDIT && !FEDIT && document.activeElement !== $('nText')) loadAll(); }, 5 * 60000);
 </script>
 </body>
 </html>
