@@ -17,8 +17,9 @@
 /* ---------- יסודות ותצוגה ---------- */
 const ELEMS = ['N', 'P', 'K', 'Ca', 'Mg', 'S', 'Fe', 'Mn', 'Zn', 'B', 'Cu', 'Mo'];
 const ELEM_HE = { N: 'חנקן', P: 'זרחן', K: 'אשלגן', Ca: 'סידן', Mg: 'מגנזיום', S: 'גופרית', Fe: 'ברזל', Mn: 'מנגן', Zn: 'אבץ', B: 'בורון', Cu: 'נחושת', Mo: 'מוליבדן' };
-// קבוע כיול EC: mS/cm לכל ppm של סך היסודות הראשיים. כויל לדוגמת הגיליון (מינון→EC 1.67) ⇒ 0.00384.
-const EC_K = 0.00384;
+// EC כמו בגיליון (Calculator!B6): סך כל היסודות כולל כלור ÷ 500 + 0.4 (המים)
+const EC_DIV = 500, EC_WATER = 0.4;
+const ecOfPpm = (sum) => sum / EC_DIV + EC_WATER;
 const EC_MAIN = ['N', 'P', 'K', 'Ca', 'Mg', 'S'];
 
 /* ---------- מסד דשנים (אחוז יסוד במסה) — מתוך הגיליון "מחשבון דשן עדכני" ---------- */
@@ -80,18 +81,19 @@ function matrix(stocks) {
 }
 /** חישוב קדמי: נתון inj (ל/קוב לכל סטוק) ⇒ ppm לכל יסוד + EC */
 function forward(stocks, inj) {
-  const ppm = {}; let tot = 0, ecMain = 0;
-  ELEMS.forEach((e) => {
+  const ppm = {}; let tot = 0, all = 0;
+  ELEMS.concat(['Cl']).forEach((e) => {
     let v = 0; stocks.forEach((s) => { v += gPerL(s, e) * (Number(inj[s.id]) || 0); });
-    ppm[e] = v; tot += v; if (EC_MAIN.includes(e)) ecMain += v;
+    if (e !== 'Cl') { ppm[e] = v; tot += v; } else ppm.Cl = v;
+    all += v;
   });
-  return { ppm, total: tot, ec: ecMain * EC_K };
+  return { ppm, total: tot, ec: ecOfPpm(all) };
 }
 /** המרה בין EC ליעד — מקנה סט targets משוער מ-EC לפי יחסי התוכנית הנוכחית */
 function scaleTargetsToEC(baseTargets, targetEC) {
-  const baseEC = EC_MAIN.reduce((s, e) => s + (baseTargets[e] || 0), 0) * EC_K;
-  if (!baseEC) return Object.assign({}, baseTargets);
-  const k = targetEC / baseEC, out = {}; ELEMS.forEach((e) => { if (baseTargets[e] != null) out[e] = baseTargets[e] * k; }); return out;
+  const sum = ELEMS.reduce((s, e) => s + (baseTargets[e] || 0), 0);
+  if (!sum) return Object.assign({}, baseTargets);
+  const k = Math.max(0, targetEC - EC_WATER) * EC_DIV / sum, out = {}; ELEMS.forEach((e) => { if (baseTargets[e] != null) out[e] = baseTargets[e] * k; }); return out;
 }
 
 /* ---------- פתרון הפוך: NNLS (ריבועים פחותים אי-שליליים) ----------
