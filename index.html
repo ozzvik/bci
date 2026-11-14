@@ -89,8 +89,8 @@ function renderGrow(j) {
     ktile('ייבוש', COL.w, P.db != null ? fmt(P.db, 1) : '—', '%', dbT[0] + '–' + dbT[1], wp.map((p) => p.db), dbs, eta),
   ].join('');
   $('cTitle').textContent = h === 24 ? '24 שעות אחרונות' : h === 48 ? '48 שעות אחרונות' : '7 ימים אחרונים';
-  $('lg').innerHTML = legend(fresh ? a : null, P.w);
-  multiChart($('big'), { t0, t1, air: P.air, wpts: P.A.pts, ev: P.A.ev, band: ph ? ph.vpd : [0.8, 1.5], height: window.innerWidth >= 900 ? 280 : 190 });
+  const lgHtml = legend(fresh ? a : null, P.w); $('lg').innerHTML = lgHtml;
+  multiChart($('big'), { lg: $('lg'), lgHtml, t0, t1, air: P.air, wpts: P.A.pts, ev: P.A.ev, band: ph ? ph.vpd : [0.8, 1.5], height: window.innerWidth >= 900 ? 280 : 190 });
   $('cGrow').textContent = [c.name || 'האצווה בפריחה', po ? 'יום ' + po.day : ''].filter(Boolean).join(' · ');
   alerts();
 }
@@ -163,7 +163,7 @@ async function loadAll() {
 links();
 $('refresh').onclick = loadAll;
 loadAll();
-let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { if (S.grow) renderGrow(S.grow); }, 200); });
+let rz, lastW = window.innerWidth; window.addEventListener('resize', () => { if (window.innerWidth === lastW) return; lastW = window.innerWidth; clearTimeout(rz); rz = setTimeout(() => { if (S.grow) renderGrow(S.grow); }, 200); });
 setInterval(() => { if (!document.hidden) loadAll(); }, 5 * 60000);
 </script>
 </body>
