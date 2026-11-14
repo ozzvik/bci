@@ -42,10 +42,10 @@
 
   <section class="grp only-m"><h2>אזורים</h2>
     <nav class="caro" id="caro">
-      <a id="cMgmt" style="--c:#f5b942"><span class="ic">🗂️</span><b>ניהול</b><small id="cMgmtS">CannaFlow</small></a>
+      <a id="cMgmt" href="mgmt.html" style="--c:#f5b942"><span class="ic">🗂️</span><b>ניהול</b><small id="cMgmtS">משימות · CannaFlow</small></a>
       <a href="prop.html" style="--c:#3b8cff"><span class="ic">🌱</span><b>ריבוי</b><small id="cPropS">אמהות ומגשים</small></a>
       <a href="batch.html" style="--c:#3ddc97"><span class="ic">🌿</span><b>גידול</b><small id="cGrow">האצווה בפריחה</small></a>
-      <a class="soon" style="--c:#9d8cff"><span class="ic">📦</span><b>מלאי</b><small>בקרוב</small></a>
+      <a href="mgmt.html#inv" style="--c:#9d8cff"><span class="ic">📦</span><b>מלאי</b><small id="cInvS">מסונכרן עם CannaFlow</small></a>
       <a href="fert.html" style="--c:#22c3e6"><span class="ic">💧</span><b>דישון</b><small>מחשבון ותוכניות</small></a>
     </nav>
   </section>
@@ -142,7 +142,14 @@ function alerts() {
 function links() {
   const ua = store.get('adminUrl'), uw = store.get('workerUrl'), um = store.get('mgmtUrl');
   const set = (id, sid, url, txt) => { const el = $(id); if (url) { el.href = url; el.onclick = null; } else { el.removeAttribute('href'); el.onclick = openDlg; $(sid).textContent = 'הוסף קישור'; } };
-  set('cMgmt', 'cMgmtS', um); if (um) $('cMgmtS').textContent = 'CannaFlow · משימות ותכנון';
+  // management now lives in mgmt.html (synced with CannaFlow); show what is waiting there, from the last copy on this device
+  const c = store.get('cf.cache'), d = c && c.d;
+  if (d) {
+    const today = dayKey(Date.now()), late = (d.tasks || []).filter((t) => !t.done && t.date && t.date < today).length, now = (d.tasks || []).filter((t) => !t.done && t.date === today).length;
+    $('cMgmtS').textContent = (now ? now + ' משימות היום' : 'אין משימות היום') + (late ? ' · ' + late + ' באיחור' : '');
+    const inv = d.invState || {}, low = Object.keys(inv).filter((k) => inv[k] && inv[k].qty != null && inv[k].qty === 0).length;
+    if (low) $('cInvS').textContent = low + ' פריטים נגמרו';
+  }
 }
 function openDlg() { $('uAdmin').value = store.get('adminUrl') || ''; $('uWorker').value = store.get('workerUrl') || ''; $('uMgmt').value = store.get('mgmtUrl') || ''; $('dlg').showModal(); }
 $('dlg').addEventListener('close', () => { if ($('dlg').returnValue === 'save') { store.set('adminUrl', $('uAdmin').value.trim()); store.set('workerUrl', $('uWorker').value.trim()); store.set('mgmtUrl', $('uMgmt').value.trim()); links(); alerts(); } });
