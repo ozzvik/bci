@@ -54,23 +54,20 @@ async function cfFetch() {
   store.set('cf.cache', { d: CF.data, at: CF.at, by: CF.by, t: Date.now() });
   return CF.data;
 }
-/** change one thing: fn(copy of the newest data) edits it in place (return false = nothing to write) */
-async function cfPatch(fn) {
+/** change one thing: fn(copy of the newest data) edits it in place (return false = nothing to write).
+    Reads the newest copy right before writing and writes it the same way CannaFlow itself saves (upsert of the 'main' row),
+    so what was changed in CannaFlow a moment ago is kept. allowDrop = how many gantt tasks this change may remove (default 2). */
+async function cfPatch(fn, allowDrop) {
   if (!CF.user) throw new Error('לא מחובר ל-CannaFlow');
-  for (let i = 0; i < 4; i++) {
-    await cfFetch();
-    const d = JSON.parse(JSON.stringify(CF.data)), n0 = (d.tasks || []).length;
-    if (fn(d) === false) return CF.data;
-    if (!Array.isArray(d.tasks) || d.tasks.length < n0 - 2) throw new Error('נחסם: השינוי היה מוחק משימות');   // never wipe the gantt
-    const now = new Date().toISOString();
-    const { data, error } = await CF.sb.from('shared_state')
-      .update({ value: JSON.stringify(d), updated_at: now, updated_by: (CF.user.email || '') + ' · BCI' })
-      .eq('key', 'main').eq('updated_at', CF.at).select('updated_at');
-    if (error) throw new Error(error.message);
-    if (data && data.length) { CF.data = d; CF.at = data[0].updated_at || now; store.set('cf.cache', { d, at: CF.at, by: CF.by, t: Date.now() }); cfEmit(); return d; }
-    await new Promise((r) => setTimeout(r, 300 + 400 * i));      // someone wrote in between – read again and redo
-  }
-  throw new Error('CannaFlow עסוק – נסה שוב');
+  await cfFetch();
+  const d = JSON.parse(JSON.stringify(CF.data)), n0 = (d.tasks || []).length;
+  if (fn(d) === false) return CF.data;
+  if (!Array.isArray(d.tasks) || d.tasks.length < n0 - (allowDrop == null ? 2 : allowDrop)) throw new Error('נחסם: השינוי היה מוחק משימות');   // never wipe the gantt
+  const now = new Date().toISOString();
+  const { error } = await CF.sb.from('shared_state').upsert({ key: 'main', value: JSON.stringify(d), updated_at: now, updated_by: (CF.user.email || '') + ' · BCI' }, { onConflict: 'key' });
+  if (error) throw new Error(error.message);
+  CF.data = d; CF.at = now; store.set('cf.cache', { d, at: now, by: CF.by, t: Date.now() }); cfEmit();
+  return d;
 }
 /** call fn(data) whenever the data changes (here or in CannaFlow) */
 function cfOn(fn) { CF.subs.push(fn); }
@@ -108,7 +105,7 @@ function cfBatches(d) {
       flower: flower ? flower.date : '', flowerId: flower ? flower.id : '', harvest: harvest ? harvest.date : '', plant: plant ? plant.date : '', cutting: cut ? cut.date : '',
       stages: { root: cut ? cut.date : '', grow: plant ? plant.date : '', flower: flower ? flower.date : '', dry: harvest ? harvest.date : '' },
       open: L.filter((t) => !t.done).length, phases: (d.batchPhases || {})[id] || null };
-  }).filter((b) => b.open || (b.harvest && b.harvest >= cfAddDays(cfToday(), -21)))
+  }).map((b) => { const last = b.tasks.length ? b.tasks[b.tasks.length - 1].date || '' : ''; b.past = (b.harvest ? b.harvest < cfAddDays(cfToday(), -30) : last < cfAddDays(cfToday(), -45)) || !b.open; return b; })
     .sort((a, b) => (a.flower || a.plant || '').localeCompare(b.flower || b.plant || ''));
 }
 function cfMaterials(d) {
@@ -139,6 +136,10 @@ function cfAddTask(o) {
   return cfPatch((d) => { d.tasks = d.tasks || []; if (t._bci && d.tasks.some((x) => x._bci === t._bci)) return false; d.tasks.push(t); }).then(() => t);
 }
 function cfDelTask(match) { return cfPatch((d) => { const n = d.tasks.length; d.tasks = d.tasks.filter((t) => !match(t)); if (d.tasks.length === n) return false; }); }
+/** deletes a batch from the gantt: all its tasks and its phase lengths (asked for by the user, after a confirm) */
+function cfDelBatch(batchId) {
+  return cfPatch((d) => { const n = (d.tasks || []).filter((t) => t.batch === batchId).length; if (!n) return false; d.tasks = d.tasks.filter((t) => t.batch !== batchId); if (d.batchPhases) delete d.batchPhases[batchId]; }, 10000);
+}
 function cfSetQty(id, qty) {
   return cfPatch((d) => {
     d.invState = d.invState || { activeCard: null, extras: [], extraCounter: 0 }; d.invState[id] = d.invState[id] || { qty: null, priority: 'normal' };
