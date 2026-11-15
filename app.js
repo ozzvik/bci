@@ -189,20 +189,45 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.se
 
 /* ================= AROYA-style pieces: recipe phases, metric tiles with a trend line, one chart of everything, side rail ================= */
 const COL = { vpd: '#3ddc97', temp: '#f5b942', rh: '#22c3e6', w: '#9d8cff', irr: '#3b8cff' };
-/* The recipe: the phases of flowering by week, with the targets of each phase.
-   id = the fertigation program of that phase (fert.html). Climate and dryback bands are starting values – change them here. */
-const RECIPE = [
-  { id: 'veg',      name: 'צימוח',   en: 'Veg',      from: 1, to: 2,  vpd: [0.8, 1.1], temp: [24, 28], rh: [60, 70], db: [10, 15] },
-  { id: 'stretch',  name: 'מתיחה',   en: 'Stretch',  from: 3, to: 3,  vpd: [1.0, 1.2], temp: [24, 28], rh: [55, 65], db: [12, 18] },
-  { id: 'bulking',  name: 'Bulking', en: 'Bulking',  from: 4, to: 6,  vpd: [1.1, 1.4], temp: [24, 27], rh: [50, 60], db: [15, 20] },
-  { id: 'ripening', name: 'הבשלה',   en: 'Ripening', from: 7, to: 8,  vpd: [1.2, 1.5], temp: [22, 26], rh: [45, 55], db: [18, 25] },
-  { id: 'flush',    name: 'שטיפה',   en: 'Flush',    from: 9, to: 99, vpd: [1.2, 1.5], temp: [20, 25], rh: [45, 55], db: [18, 25] },
+/* The recipe. A batch goes through 4 stages, each with its own start day (the count starts again at day 1 in every stage):
+   rooting → veg → flowering → drying. Flowering is split by week into sub-phases. Every stage / sub-phase has targets
+   (vpd, temp, rh, db = dryback %) and the fertigation program it uses (fert). All of it can be changed in the settings page. */
+const STAGE_IDS = ['root', 'grow', 'flower', 'dry'];
+const STAGES = [
+  { id: 'root',   name: 'השרשה', en: 'Rooting', vpd: [0.4, 0.8], temp: [24, 27], rh: [75, 90], db: [5, 15],  fert: '' },
+  { id: 'grow',   name: 'צימוח', en: 'Veg',     vpd: [0.8, 1.1], temp: [24, 28], rh: [60, 70], db: [10, 15], fert: 'veg' },
+  { id: 'flower', name: 'הפרחה', en: 'Flower' },
+  { id: 'dry',    name: 'ייבוש', en: 'Drying',  vpd: [0.8, 1.1], temp: [18, 21], rh: [55, 62], db: [0, 100], fert: '' },
 ];
-function phaseOf(cycle) {
-  const day = cycleDay(cycle, Date.now()); if (!cycle || !cycle.start || !day || day < 1) return null;
-  const week = Math.floor((day - 1) / 7) + 1;
-  return { day, week, ph: RECIPE.find((p) => week >= p.from && week <= p.to) || RECIPE[RECIPE.length - 1] };
+const RECIPE = [                                     // the sub-phases of flowering, by week of flowering
+  { id: 'veg',      name: 'תחילת פריחה', en: 'Early',    from: 1, to: 2,  vpd: [0.8, 1.1], temp: [24, 28], rh: [60, 70], db: [10, 15], fert: 'veg' },
+  { id: 'stretch',  name: 'מתיחה',       en: 'Stretch',  from: 3, to: 3,  vpd: [1.0, 1.2], temp: [24, 28], rh: [55, 65], db: [12, 18], fert: 'stretch' },
+  { id: 'bulking',  name: 'Bulking',     en: 'Bulking',  from: 4, to: 6,  vpd: [1.1, 1.4], temp: [24, 27], rh: [50, 60], db: [15, 20], fert: 'bulking' },
+  { id: 'ripening', name: 'הבשלה',       en: 'Ripening', from: 7, to: 8,  vpd: [1.2, 1.5], temp: [22, 26], rh: [45, 55], db: [18, 25], fert: 'ripening' },
+  { id: 'flush',    name: 'שטיפה',       en: 'Flush',    from: 9, to: 99, vpd: [1.2, 1.5], temp: [20, 25], rh: [45, 55], db: [18, 25], fert: '' },
+];
+const RECIPE_DEFAULT = JSON.parse(JSON.stringify({ stages: STAGES, subs: RECIPE }));
+/* the app settings (settings.html), kept in this phone and refreshed from the server */
+let SET = store.get('appset') || {};
+(function applyRecipe() {
+  const r = SET.recipe; if (!r) return;
+  if (Array.isArray(r.stages)) r.stages.forEach((x) => { const i = STAGES.findIndex((s) => s.id === x.id); if (i >= 0) STAGES[i] = Object.assign({}, STAGES[i], x); });
+  if (Array.isArray(r.subs) && r.subs.length) RECIPE.splice(0, RECIPE.length, ...r.subs);
+})();
+const stageById = (id) => STAGES.find((s) => s.id === id) || RECIPE.find((s) => s.id === id) || null;
+/** the start day of every stage of a cycle (flowering = cycle.start) */
+const stageDates = (c) => Object.assign({ root: '', grow: '', flower: '', dry: '' }, (c && c.stages) || {}, c && c.start ? { flower: c.start } : {});
+/** where the batch is today: stage, day in that stage (from 1), week, and ph = the targets in force (a flowering sub-phase, or the stage) */
+function phaseOf(cycle, t) {
+  const D = stageDates(cycle), today = dayKey(t || Date.now());
+  let st = null; STAGE_IDS.forEach((id) => { if (D[id] && D[id] <= today) st = id; });
+  if (!st) return null;
+  const day = Math.floor((new Date(today + 'T00:00:00') - new Date(D[st] + 'T00:00:00')) / DAY) + 1, week = Math.floor((day - 1) / 7) + 1;
+  const stage = stageById(st), ph = st === 'flower' ? (RECIPE.find((p) => week >= p.from && week <= p.to) || RECIPE[RECIPE.length - 1]) : stage;
+  return { stage, day, week, ph, dates: D };
 }
+/** "הפרחה · יום 12 · שבוע 2" */
+const phaseLabel = (po) => po ? po.stage.name + ' · יום ' + po.day + ' · שבוע ' + po.week : '';
 const band = (v, b, soft) => v == null || !isFinite(v) ? 'off' : v >= b[0] && v <= b[1] ? '' : v >= b[0] - soft && v <= b[1] + soft ? 'warn' : 'bad';
 const thin = (a, n) => { if (a.length <= n) return a; const s = a.length / n, o = []; for (let i = 0; i < n; i++) o.push(a[Math.floor(i * s)]); o.push(a[a.length - 1]); return o; };
 const arrMin = (a) => a.reduce((m, v) => v < m ? v : m, Infinity), arrMax = (a) => a.reduce((m, v) => v > m ? v : m, -Infinity);
@@ -267,21 +292,92 @@ function rangeSeg(el, opts, onChange) {
   const draw = () => { el.innerHTML = opts.map((o) => '<button class="' + (o[0] === h ? 'on' : '') + '" data-h="' + o[0] + '">' + o[1] + '</button>').join(''); el.querySelectorAll('button').forEach((b) => b.onclick = () => { h = +b.dataset.h; store.set('range', h); draw(); onChange(h); }); };
   draw(); return () => h;
 }
-/* side rail with the areas – on wide screens, on every page */
+/* ---------- areas of the app (side rail on wide screens, carousel on the home page), the order / hidden ones from the settings ---------- */
+const AREAS = [
+  { id: 'home',  icon: '🏠', name: 'בית',    href: 'index.html', pages: ['index.html', ''], sub: '' },
+  { id: 'mgmt',  icon: '🗂️', name: 'ניהול',  href: 'mgmt.html', pages: ['mgmt.html'], sub: 'משימות · CannaFlow', c: '#f5b942' },
+  { id: 'prop',  icon: '🌱', name: 'ריבוי',  href: 'prop.html', pages: ['prop.html'], sub: 'אמהות ומגשים', c: '#3b8cff' },
+  { id: 'batch', icon: '🌿', name: 'גידול',  href: 'batch.html', pages: ['batch.html', 'grow.html', 'photos.html'], sub: 'האצווה בחדר', c: '#3ddc97' },
+  { id: 'inv',   icon: '📦', name: 'מלאי',   href: 'mgmt.html#inv', pages: [], sub: 'מסונכרן עם CannaFlow', c: '#9d8cff' },
+  { id: 'fert',  icon: '💧', name: 'דישון',  href: 'fert.html', pages: ['fert.html'], sub: 'מחשבון ותוכניות', c: '#22c3e6' },
+  { id: 'set',   icon: '⚙️', name: 'הגדרות', href: 'settings.html', pages: ['settings.html'], sub: 'נתונים, עיצוב, גישה', c: '#7f93b5' },
+];
+const PAGE = (location.pathname.split('/').pop() || 'index.html').toLowerCase();
+let USER = store.get('user');                              // who uses this phone {id, name, role} – only when users are set
+const hasUsers = () => !!(SET.users && SET.users.length);
+const isManager = () => !hasUsers() || (USER && USER.role === 'manager');
+/** may the person on this phone open this area? (workers: only the areas the manager allowed) */
+function canOpen(areaId) {
+  if (!hasUsers() || isManager()) return true;
+  if (areaId === 'set') return false;
+  const allowed = SET.workerPages || ['home', 'mgmt', 'prop', 'batch'];
+  return areaId === 'home' || allowed.indexOf(areaId) >= 0;
+}
+/** areas in the order of the settings, without the hidden ones and the ones this person may not open */
+function areasList(withHome) {
+  const L = (SET.layout && SET.layout.areas) || [], pos = (id) => { const i = L.findIndex((x) => x.id === id); return i < 0 ? 99 : i; };
+  return AREAS.filter((a) => (withHome || a.id !== 'home') && !(L.find((x) => x.id === a.id && x.hide) && a.id !== 'set' && a.id !== 'home') && canOpen(a.id)).sort((a, b) => a.id === 'home' ? -1 : b.id === 'home' ? 1 : pos(a.id) - pos(b.id));
+}
+/* look: theme, main colour, text size */
+function applyLook() {
+  const L = SET.look || {}, r = document.documentElement;
+  if (L.theme === 'dark' || L.theme === 'light') r.dataset.theme = L.theme; else delete r.dataset.theme;
+  if (L.accent) { r.style.setProperty('--accent', L.accent); r.style.setProperty('--accent-d', 'color-mix(in srgb, ' + L.accent + ' 82%, #000)'); } else { r.style.removeProperty('--accent'); r.style.removeProperty('--accent-d'); }
+  r.style.setProperty('--fs', { large: 1.12, xl: 1.25 }[L.size] || 1);
+}
+applyLook();
+/* the order / hidden cards of a page: <div data-lay="home"> with children <… data-sec="room"> */
+const LAYOUTS = {
+  home: [['alerts', 'התראות'], ['room', 'חדר פריחה (מדדים)'], ['chart', 'גרף 48 שעות'], ['prop', 'ריבוי'], ['caro', 'אזורים (קרוסלה)']],
+  batch: [['fert', 'דישון לשלב'], ['notes', 'הערות לשלב'], ['tasks', 'משימות השלב'], ['cf', 'CannaFlow · גאנט'], ['photo', 'תמונה אחרונה'], ['links', 'קישורים']],
+};
+function applyLayout(root) {
+  (root || document).querySelectorAll('[data-lay]').forEach((box) => {
+    const L = (SET.layout && SET.layout[box.dataset.lay]) || []; if (!L.length) return;
+    const kids = [...box.children].filter((k) => k.dataset.sec), pos = (id) => { const i = L.findIndex((x) => x.id === id); return i < 0 ? 99 : i; };
+    kids.sort((a, b) => pos(a.dataset.sec) - pos(b.dataset.sec)).forEach((k) => { box.appendChild(k); k.classList.toggle('lay-hide', !!(L.find((x) => x.id === k.dataset.sec && x.hide))); });
+  });
+}
+document.addEventListener('DOMContentLoaded', () => applyLayout());
+if (document.readyState !== 'loading') applyLayout();
+/* side rail */
 (function () {
-  const pg = (location.pathname.split('/').pop() || 'index.html').toLowerCase(), um = store.get('mgmtUrl');
-  const items = [['🏠', 'בית', 'index.html', ['index.html', '']], ['🗂️', 'ניהול', 'mgmt.html', ['mgmt.html']], ['🌱', 'ריבוי', 'prop.html', ['prop.html']], ['🌿', 'גידול', 'batch.html', ['batch.html', 'grow.html', 'photos.html']], ['📦', 'מלאי', 'mgmt.html#inv', []], ['💧', 'דישון', 'fert.html', ['fert.html']]];
   const el = document.createElement('aside'); el.className = 'side';
-  el.innerHTML = '<img src="icon-192.png" alt="">' + items.map((i) => '<a' + (i[2] ? ' href="' + esc(i[2]) + '"' : '') + ' data-t="' + i[1] + '" class="' + (i[3].indexOf(pg) >= 0 ? 'on' : '') + (i[2] ? '' : ' off') + '">' + i[0] + '</a>').join('');
+  el.innerHTML = '<img src="icon-192.png" alt="">' + areasList(true).map((a) => '<a href="' + esc(a.href) + '" data-t="' + esc(a.name) + '" class="' + (a.pages.indexOf(PAGE) >= 0 ? 'on' : '') + '">' + a.icon + '</a>').join('');
   document.body.appendChild(el); document.body.classList.add('has-side');
 })();
+/* access: when users are set, the phone must be signed in; a worker only gets the areas allowed for workers */
+function signInBox() {
+  const ov = document.createElement('div'); ov.className = 'gate';
+  ov.innerHTML = '<div class="gbox"><img src="icon-192.png" alt=""><h2>מי משתמש?</h2><div class="gusers">' + SET.users.map((u) => '<button data-u="' + esc(u.id) + '">' + esc(u.name) + '<small>' + (u.role === 'manager' ? 'מנהל' : 'עובד') + '</small></button>').join('') + '</div>' +
+    '<div class="gpin" hidden><b id="gName"></b><input id="gPin" type="password" inputmode="numeric" autocomplete="off" placeholder="קוד" maxlength="8"><button class="btn primary" id="gGo">כניסה</button><div class="msg" id="gMsg"></div></div></div>';
+  document.body.appendChild(ov); let uid = null;
+  ov.querySelectorAll('[data-u]').forEach((b) => b.onclick = () => { uid = b.dataset.u; ov.querySelector('.gpin').hidden = false; $('gName').textContent = b.firstChild.textContent; $('gPin').value = ''; $('gPin').focus(); });
+  const go = async () => {
+    $('gMsg').textContent = 'בודק…';
+    try { const r = await apiPost({ action: 'checkpin', user: uid, pin: $('gPin').value }); USER = r.user; store.set('user', USER); location.reload(); }
+    catch (e) { $('gMsg').textContent = e.message || 'קוד שגוי'; }
+  };
+  $('gGo').onclick = go; $('gPin').onkeydown = (e) => { if (e.key === 'Enter') go(); };
+}
+(function gate() {
+  if (!hasUsers()) return;
+  if (USER && !SET.users.some((u) => u.id === USER.id)) { USER = null; store.set('user', null); }
+  if (!USER) { signInBox(); return; }
+  const here = AREAS.find((a) => a.pages.indexOf(PAGE) >= 0);
+  if (here && !canOpen(here.id)) { const first = areasList(true)[0]; location.replace(first ? first.href : 'index.html'); }
+})();
+function signOut() { USER = null; store.set('user', null); location.reload(); }
+/* fresh settings from the server (they apply at once: look; recipe/layout/access on the next page load) */
+api('action=appsettings').then((j) => { if (!j || !j.ok) return; const changed = (j.at || '') !== (SET.at || ''); SET = j; store.set('appset', j); applyLook(); if (changed) { applyLayout(); if (hasUsers() && !USER && !document.querySelector('.gate')) signInBox(); } }).catch(() => {});
 
 /* number fields. On a phone/tablet: the app's own keypad slides up (big keys, a dot, delete, "next field", done) instead of the phone keyboard.
    On a computer: the normal keyboard; a click selects the old value so typing replaces it. */
 (function () {
   const touch = window.matchMedia && matchMedia('(pointer: coarse)').matches;
   const SEL = 'input[type="number"]';
-  const mark = (i) => { if (!i.dataset.kp) { i.dataset.kp = 1; i.setAttribute('inputmode', touch ? 'none' : 'decimal'); } };
+  // on a touch screen the field is read-only (so no phone keyboard opens at all – inputmode="none" is not kept by every phone); the keypad writes into it
+  const mark = (i) => { if (!i.dataset.kp) { i.dataset.kp = i.readOnly ? 'ro' : 1; i.setAttribute('inputmode', touch ? 'none' : 'decimal'); if (touch) i.readOnly = true; } };
   const fix = (root) => { if (root.matches && root.matches(SEL)) mark(root); if (root.querySelectorAll) root.querySelectorAll(SEL).forEach(mark); };
   fix(document); new MutationObserver((ms) => ms.forEach((m) => m.addedNodes.forEach((n) => { if (n.nodeType === 1) fix(n); }))).observe(document.body, { childList: true, subtree: true });
   if (!touch) { document.addEventListener('focusin', (e) => { const t = e.target; if (t && t.matches && t.matches(SEL)) setTimeout(() => { try { t.select(); } catch (err) {} }, 0); }); return; }
@@ -307,7 +403,9 @@ function rangeSeg(el, opts, onChange) {
     pad.hidden = false; document.body.classList.add('np-open');
     setTimeout(() => i.scrollIntoView({ block: 'center', behavior: 'smooth' }), 30);
   };
-  document.addEventListener('focusin', (e) => { const t = e.target; if (t && t.matches && t.matches(SEL) && !t.disabled && !t.readOnly) open(t); });
+  const ours = (t) => t && t.matches && t.matches(SEL) && !t.disabled && t.dataset.kp && t.dataset.kp !== 'ro';
+  document.addEventListener('focusin', (e) => { if (ours(e.target)) open(e.target); });
+  document.addEventListener('click', (e) => { if (ours(e.target)) open(e.target); });
   // a tap anywhere else closes the keypad – after that tap did its own job, so the page does not jump under the finger
   document.addEventListener('click', (e) => { if (cur && !pad.contains(e.target) && !(e.target.matches && e.target.matches(SEL))) setTimeout(close, 0); }, true);
   document.addEventListener('focusin', (e) => { const t = e.target; if (cur && t !== cur && !(t.matches && t.matches(SEL))) setTimeout(close, 0); });   // typing in a text field
@@ -315,7 +413,7 @@ function rangeSeg(el, opts, onChange) {
   pad.addEventListener('click', (e) => {
     const b = e.target.closest('button'); if (!b || !cur) return; const k = b.dataset.k;
     if (k === 'ok') return close();
-    if (k === 'next') { const all = [...document.querySelectorAll(SEL)].filter((x) => x.offsetParent && !x.disabled && !x.readOnly), j = all.indexOf(cur); const nx = all[j + 1]; if (!nx) return close(); nx.focus(); open(nx); return; }
+    if (k === 'next') { const all = [...document.querySelectorAll(SEL)].filter((x) => x.offsetParent && ours(x)), j = all.indexOf(cur); const nx = all[j + 1]; if (!nx) return close(); nx.focus(); open(nx); return; }
     if (k === 'clr') buf = '';
     else if (k === 'del') buf = fresh ? '' : buf.slice(0, -1);
     else if (k === '.') { if (fresh) buf = '0.'; else if (buf.indexOf('.') < 0) buf = (buf || '0') + '.'; }
