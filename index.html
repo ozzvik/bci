@@ -80,11 +80,11 @@ function renderGrow(j) {
   $('gDot').style.background = st.indexOf('bad') >= 0 ? 'var(--red)' : st.indexOf('warn') >= 0 || !fresh ? 'var(--amber)' : 'var(--green)';
   const eta = P.eta == null ? '' : P.eta === 0 ? 'להשקות עכשיו' : P.eta < 48 ? 'השקיה ~' + hm(P.t + P.eta * 3600000) : '';
   $('gTiles').innerHTML = [
-    ktile('VPD', COL.vpd, fresh ? fmt(a.vpd, 2) : '—', 'kPa', ph ? ph.vpd[0] + '–' + ph.vpd[1] : '', air.map((p) => p.vpd), st[0], fresh ? '' : 'לא מדווח' + (a ? ' · ' + ago(a.t) : '')),
-    ktile('טמפ׳', COL.temp, fresh ? fmt(a.temp, 1) : '—', '°C', ph ? ph.temp[0] + '–' + ph.temp[1] : '', air.map((p) => p.temp), st[1]),
-    ktile('לחות', COL.rh, fresh ? fmt(a.rh) : '—', '%', ph ? ph.rh[0] + '–' + ph.rh[1] : '', air.map((p) => p.rh), st[2]),
-    ktile('ייבוש', COL.w, P.db != null ? fmt(P.db, 1) : '—', '%', dbT[0] + '–' + dbT[1], wp.map((p) => p.db), dbs, eta),
-  ].join('');
+    ktile('VPD', COL.vpd, fresh ? fmt(a.vpd, 2) : '—', 'kPa', ph ? ph.vpd[0] + '–' + ph.vpd[1] : '', air.map((p) => p.vpd), st[0], fresh ? '' : 'לא מדווח' + (a ? ' · ' + ago(a.t) : ''), 'vpd'),
+    ktile('טמפ׳', COL.temp, fresh ? fmt(a.temp, 1) : '—', '°C', ph ? ph.temp[0] + '–' + ph.temp[1] : '', air.map((p) => p.temp), st[1], '', 'temp'),
+    ktile('לחות', COL.rh, fresh ? fmt(a.rh) : '—', '%', ph ? ph.rh[0] + '–' + ph.rh[1] : '', air.map((p) => p.rh), st[2], '', 'rh'),
+    ktile('ייבוש', COL.w, P.db != null ? fmt(P.db, 1) : '—', '%', dbT[0] + '–' + dbT[1], wp.map((p) => p.db), dbs, eta, 'db'),
+  ].join(''); metricTiles($('gTiles'), ph);
   $('cTitle').textContent = h === 24 ? '24 שעות אחרונות' : h === 48 ? '48 שעות אחרונות' : '7 ימים אחרונים';
   const lgHtml = legend(fresh ? a : null, P.w); $('lg').innerHTML = lgHtml;
   multiChart($('big'), { lg: $('lg'), lgHtml, t0, t1, air: P.air, wpts: P.A.pts, ev: P.A.ev, band: ph ? ph.vpd : [0.8, 1.5], height: window.innerWidth >= 900 ? 280 : 190 });
