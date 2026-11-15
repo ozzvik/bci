@@ -18,7 +18,7 @@
 const ELEMS = ['N', 'P', 'K', 'Ca', 'Mg', 'S', 'Fe', 'Mn', 'Zn', 'B', 'Cu', 'Mo'];
 const ELEM_HE = { N: 'חנקן', P: 'זרחן', K: 'אשלגן', Ca: 'סידן', Mg: 'מגנזיום', S: 'גופרית', Fe: 'ברזל', Mn: 'מנגן', Zn: 'אבץ', B: 'בורון', Cu: 'נחושת', Mo: 'מוליבדן' };
 // EC כמו בגיליון (Calculator!B6): סך כל היסודות כולל כלור ÷ 500 + 0.4 (המים)
-const EC_DIV = 500, EC_WATER = 0.4;
+const EC_DIV = (typeof SET !== 'undefined' && SET.fert && Number(SET.fert.ecDiv)) || 500, EC_WATER = (typeof SET !== 'undefined' && SET.fert && SET.fert.ecWater != null && isFinite(SET.fert.ecWater)) ? Number(SET.fert.ecWater) : 0.4;   // both can be changed in the settings page
 const ecOfPpm = (sum) => sum / EC_DIV + EC_WATER;
 const EC_MAIN = ['N', 'P', 'K', 'Ca', 'Mg', 'S'];
 
