@@ -243,3 +243,16 @@ body.np-open { padding-bottom: 330px; }
 .phasebar { overflow-x: auto; scrollbar-width: none; } .phasebar::-webkit-scrollbar { display: none; }
 .phasebar div { flex-shrink: 0; } .phasebar div.fl:not(.on):not(.done) { background: color-mix(in srgb, var(--green) 6%, var(--card2)); }
 @media (max-width: 360px) { .tile .v { font-size: calc(21px * var(--fs, 1)); } }
+
+/* the big view of one metric */
+.mx { position: fixed; inset: 0; z-index: 70; background: rgba(0,0,0,.55); display: grid; place-items: end center; }
+.mxb { width: 100%; max-width: 820px; max-height: 94vh; overflow: auto; background: var(--card); border-radius: 18px 18px 0 0; padding: 14px 14px calc(14px + env(safe-area-inset-bottom)); }
+@media (min-width: 700px) { .mx { place-items: center; } .mxb { border-radius: 18px; } }
+.mxh { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; } .mxh b { font-size: calc(17px * var(--fs, 1)); display: flex; align-items: center; gap: 6px; } .mxh small { color: var(--muted); font-weight: 500; }
+.mxv { margin: 10px 2px 4px; font-size: calc(14px * var(--fs, 1)); min-height: 24px; } .mxv b { font-size: calc(24px * var(--fs, 1)); }
+.mxs { display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 6px; margin: 10px 0; }
+.mxs div { background: var(--card2); border-radius: 10px; padding: 8px; text-align: center; } .mxs small { display: block; color: var(--muted); font-size: calc(11.5px * var(--fs, 1)); } .mxs b { font-size: calc(16px * var(--fs, 1)); }
+.k[data-m]:active { transform: scale(.98); }
+
+.lay-off { display: none !important; }
+.chip.miss { background: color-mix(in srgb, var(--amber) 30%, rgba(0,0,0,.5)) !important; }
