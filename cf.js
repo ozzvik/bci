@@ -93,17 +93,20 @@ async function cfStart() {
 const cfToday = () => dayKey(Date.now());
 const cfAddDays = (d, n) => { const t = new Date(d + 'T12:00:00'); t.setDate(t.getDate() + n); return dayKey(t.getTime()); };
 const cfRoomName = (d, id) => { const r = ((d && d.rooms) || []).find((x) => x.id === id); return r ? r.name : (id || ''); };
+/** the gantt task that starts each stage of a batch, by the words in its name */
+const CF_WORDS = { root: ['ייחורים', 'השרשה', 'שרשה', 'cutting'], grow: ['שתילה', 'planting'], flower: ['הפרחה', 'flower'], dry: ['קציר', 'harvest', 'ייבוש'] };
 /** batches = tasks grouped by their batch id; the batch's first task carries its name */
 function cfBatches(d) {
   const by = {}; ((d && d.tasks) || []).forEach((t) => { if (t.batch) (by[t.batch] = by[t.batch] || []).push(t); });
   const find = (L, words) => L.find((t) => words.some((w) => (t.name || '').indexOf(w) >= 0));
   return Object.keys(by).map((id) => {
     const L = by[id].slice().sort((a, b) => (a.date || '').localeCompare(b.date || '')), root = L.find((t) => t.id === id) || L[0];
-    const flower = find(L, ['הפרחה', 'flower']), harvest = find(L, ['קציר', 'harvest']), plant = find(L, ['שתילה', 'planting']);
+    const flower = find(L, CF_WORDS.flower), harvest = find(L, CF_WORDS.dry), plant = find(L, CF_WORDS.grow), cut = find(L, CF_WORDS.root);
     const room = (flower && (flower.growRoom || flower.room)) || root.growRoom || root.room || '';
     const strain = root.strain || (L.find((t) => t.strain) || {}).strain || '';
     return { id, name: strain || (root.name || '').replace(/^(שתילה|ייחורים|הפרחה)\s*[·\-–]\s*/, '') || root.name || id, strain, room, roomName: cfRoomName(d, room), tasks: L,
-      flower: flower ? flower.date : '', flowerId: flower ? flower.id : '', harvest: harvest ? harvest.date : '', plant: plant ? plant.date : '',
+      flower: flower ? flower.date : '', flowerId: flower ? flower.id : '', harvest: harvest ? harvest.date : '', plant: plant ? plant.date : '', cutting: cut ? cut.date : '',
+      stages: { root: cut ? cut.date : '', grow: plant ? plant.date : '', flower: flower ? flower.date : '', dry: harvest ? harvest.date : '' },
       open: L.filter((t) => !t.done).length, phases: (d.batchPhases || {})[id] || null };
   }).filter((b) => b.open || (b.harvest && b.harvest >= cfAddDays(cfToday(), -21)))
     .sort((a, b) => (a.flower || a.plant || '').localeCompare(b.flower || b.plant || ''));
@@ -142,15 +145,23 @@ function cfSetQty(id, qty) {
     d.invState[id].qty = qty; d.inventory = d.inventory || {}; if (qty != null) d.inventory[id] = qty;
   });
 }
-/** move the flowering of a batch to a new date; with shift=true the later tasks of the batch that are not done move by the same days */
-function cfMoveFlower(batchId, newDate, shift) {
+/** move the start of stages of a batch in the gantt: dates = {root?, grow?, flower?, dry?}.
+    shift=true: the later tasks of the batch that are not done move by the same days (stage by stage, in order) */
+function cfMoveStages(batchId, dates, shift) {
   return cfPatch((d) => {
-    const L = (d.tasks || []).filter((t) => t.batch === batchId), f = L.find((t) => /הפרחה|flower/.test(t.name || ''));
-    if (!f || !f.date || f.date === newDate) return false;
-    const delta = Math.round((new Date(newDate + 'T12:00:00') - new Date(f.date + 'T12:00:00')) / DAY);
-    L.forEach((t) => { if (t === f || (shift && !t.done && t.date && t.date > f.date)) t.date = cfAddDays(t.date, delta); });
+    let moved = false;
+    ['root', 'grow', 'flower', 'dry'].forEach((k) => {
+      const nd = dates[k]; if (!nd) return;
+      const L = (d.tasks || []).filter((t) => t.batch === batchId), f = L.find((t) => CF_WORDS[k].some((w) => (t.name || '').indexOf(w) >= 0));
+      if (!f || !f.date || f.date === nd) return;
+      const delta = Math.round((new Date(nd + 'T12:00:00') - new Date(f.date + 'T12:00:00')) / DAY), from = f.date;
+      L.forEach((t) => { if (t === f || (shift && !t.done && t.date && t.date > from)) t.date = cfAddDays(t.date, delta); });
+      moved = true;
+    });
+    if (!moved) return false;
   });
 }
+const cfMoveFlower = (batchId, newDate, shift) => cfMoveStages(batchId, { flower: newDate }, shift);
 
 /* ---------- sign-in box (any page) ---------- */
 function cfLoginBox(el, onIn) {
