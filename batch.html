@@ -31,7 +31,19 @@
   .cft.done .cb { background: var(--green-d); border-color: var(--green-d); } .cft.done span { color: var(--muted); text-decoration: line-through; }
   .cft span { flex: 1; } .cft small { color: var(--muted); }
   .task .sync { font-size: calc(10.5px * var(--fs, 1)); color: var(--green); font-weight: 700; margin-inline-start: 4px; }
-  #tNew, #tWho { font: inherit; color: var(--ink); background: var(--card2); border: 1px solid var(--line); border-radius: 10px; padding: 9px 10px; min-width: 0; }
+  .bsw { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin: 0 0 12px; }
+  .bsw button { flex: none; font: inherit; text-align: start; border: 1px solid var(--line); background: var(--card); color: var(--ink); border-radius: 12px; padding: 7px 12px; font-weight: 700; font-size: calc(13.5px * var(--fs, 1)); }
+  .bsw button small { display: block; color: var(--muted); font-weight: 500; font-size: calc(11.5px * var(--fs, 1)); }
+  .bsw button.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--card)); }
+  .bsw button.add, .bsw button.arc { color: var(--accent); }
+  .dayc { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin: 0 2px 10px; }
+  .dayc .sn { font-size: calc(26px * var(--fs, 1)); font-weight: 800; }
+  .dayc .dn { font-size: calc(26px * var(--fs, 1)); font-weight: 800; color: var(--accent); }
+  .dayc .wn { font-size: calc(18px * var(--fs, 1)); font-weight: 700; color: var(--muted); }
+  .dayc .sp { font-size: calc(13px * var(--fs, 1)); font-weight: 700; padding: 3px 10px; border-radius: 20px; background: color-mix(in srgb, var(--green) 14%, transparent); color: var(--green); }
+  .nosens { color: var(--muted); font-size: calc(13.5px * var(--fs, 1)); }
+  .ck { display: flex !important; flex-direction: row !important; gap: 8px; align-items: center; } .ck input { width: auto !important; }
+  #tNew, #tWho, #tDate { font: inherit; color: var(--ink); background: var(--card2); border: 1px solid var(--line); border-radius: 10px; padding: 9px 10px; min-width: 0; }
 </style>
 </head>
 <body>
@@ -43,6 +55,8 @@
 </header>
 
 <main class="wrap">
+  <!-- the batches growing now: one chip each, + a new one -->
+  <div class="bsw scroll" id="bsw"></div>
   <!-- name + start of flowering: shown when missing, or when "edit" is pressed -->
   <div class="card setup" id="setup" hidden>
     <h2 id="sTitle">הגדרת האצווה</h2>
@@ -53,16 +67,21 @@
       <label style="flex:1 1 140px">תחילת צימוח<input id="sGrow" type="date"></label>
       <label style="flex:1 1 140px">תחילת הפרחה<input id="sStart" type="date"></label>
       <label style="flex:1 1 140px">תחילת ייבוש<input id="sDry" type="date"></label>
+      <label style="flex:1 1 160px">חדר<input id="sRoom" list="roomsDl" placeholder="למשל: אינדור" style="direction:rtl;text-align:start"><datalist id="roomsDl"></datalist></label>
+      <label class="ck" style="flex:1 1 100%"><input type="checkbox" id="sSens"> האצווה בחדר עם החיישנים (משקל, חיישן אוויר, מצלמות)</label>
       <button class="btn primary" id="sSave">שמור</button><button class="btn" id="sCancel" hidden>ביטול</button>
     </div>
+    <div class="links" id="sMore" hidden style="margin-top:10px"><button class="btn" id="sArch">📦 העבר לארכיון</button><button class="btn" id="sDel" style="color:var(--red)">🗑 מחק אצווה</button></div>
     <div class="msg" id="sMsg"></div>
   </div>
 
   <div id="main" hidden>
+    <div class="dayc" id="dayc"></div>
     <div class="phasebar scroll" id="phases"></div>
     <div class="kp" id="live" style="--n:6;margin-bottom:12px"></div>
+    <div class="room nosens" id="nosens" hidden>📡 האצווה הזו לא בחדר עם החיישנים – אין מדידות חיות. <a href="#" id="toSens" style="color:var(--accent)">לאצווה שבחדר החיישנים ‹</a></div>
     <div class="g2">
-      <div class="room" style="margin:0">
+      <div class="room" style="margin:0" id="chartCard">
         <div class="rt"><b>חי מול יעד השלב</b><span id="when"></span><span class="fl"></span><span class="seg rng" id="rng"></span></div>
         <div id="lg"></div>
         <div class="chart" id="big"></div>
@@ -89,7 +108,7 @@
         <div class="room" data-sec="tasks">
           <div class="rt"><b>📋 משימות השלב</b><span class="fl"></span><span id="tCount"></span></div>
           <div id="tasks"></div>
-          <div class="form" style="margin-top:8px"><input id="tNew" placeholder="משימה חדשה לשלב הזה" style="flex:1"><input id="tWho" placeholder="מי" style="width:70px"><button class="btn" id="tAdd">הוסף</button></div>
+          <div class="form" style="margin-top:8px"><input id="tNew" placeholder="משימה חדשה לשלב הזה" style="flex:1 1 100%"><input id="tDate" type="date" aria-label="תאריך ביצוע" style="flex:1 1 130px"><input id="tWho" placeholder="מי" style="width:70px"><button class="btn" id="tAdd">הוסף</button></div>
         </div>
         <div class="room" id="cfCard" data-sec="cf">
           <div class="rt"><b>🔗 CannaFlow · גאנט</b><span class="fl"></span><span id="cfState" class="muted small"></span></div>
@@ -108,7 +127,8 @@
 <script src="cf.js"></script>
 <script>
 $('refresh').innerHTML = ICON.refresh; $('back').innerHTML = ICON.back;
-let G = null, F = null, GP = null, T = null;      // grow data, fertigation programs, photos, batch store (tasks, notes, fert)
+let G = null, F = null, GP = null, T = null;      // grow data (sensors), fertigation programs, photos, the batch shown (fields + tasks, notes, fert, link)
+let LIST = null, BID = new URLSearchParams(location.search).get('b') || store.get('batch.cur') || '', ARCH = false;   // all the batches; the one shown; archive view
 let PH = null, VIEW = null;                        // the phase the batch is in now, and the phase whose notes/tasks/fertigation are shown
 let EDIT = false, FEDIT = false;                   // the name/date form and the fertigation form are open – a refresh must not touch them
 const getRange = rangeSeg($('rng'), [[24, '24 שע׳'], [48, 'יומיים'], [168, '7 ימים'], [720, '30 יום']], () => loadAll());
@@ -116,9 +136,33 @@ const say = (t, bad) => { $('msg').textContent = t || ''; $('msg').className = '
 const progOf = (v) => v.fert != null ? v.fert : v.id;            // the fertigation program of a stage / sub-phase (settings page)
 const stockName = (k) => k === 'ACID' ? 'חומצה' : k;
 
+/** the cycle of the batch shown: its name and the start day of every stage */
+/** the batches are kept in this phone too (shown at once next time) */
+const keepLocal = () => { if (LIST) store.set('batches', { ok: true, list: LIST }); };
+const CY = () => T ? { name: T.name, start: (T.stages || {}).flower || '', stages: T.stages || {} } : (G && G.cycle) || {};
+function switcher() {
+  if (!LIST) return;
+  const L = LIST.filter((b) => !!b.archived === ARCH), nArc = LIST.filter((b) => b.archived).length;
+  $('bsw').innerHTML = L.map((b) => { const po = phaseOf({ start: (b.stages || {}).flower, stages: b.stages }); return '<button data-b="' + esc(b.id) + '" class="' + (T && b.id === T.id ? 'on' : '') + '">' + (b.sensors ? '📡 ' : '') + esc(b.name || 'ללא שם') + '<small>' + (po ? po.stage.name + ' · יום ' + po.day : 'לא התחילה') + (b.room ? ' · ' + esc(b.room) : '') + '</small></button>'; }).join('') +
+    (ARCH ? '<button class="arc" data-arc="0">‹ חזרה לאצוות</button>' : '<button class="add" id="bNew">➕ אצווה</button>' + (nArc ? '<button class="arc" data-arc="1">📦 ארכיון (' + nArc + ')</button>' : ''));
+  $('bsw').querySelectorAll('[data-b]').forEach((el) => el.onclick = () => pick(el.dataset.b));
+  $('bsw').querySelectorAll('[data-arc]').forEach((el) => el.onclick = () => { ARCH = el.dataset.arc === '1'; switcher(); });
+  const nb = $('bNew'); if (nb) nb.onclick = newBatch;
+}
+function pick(id) {
+  const b = LIST && LIST.find((x) => x.id === id); if (!b) return;
+  T = b; BID = id; store.set('batch.cur', id); history.replaceState(null, '', '?b=' + encodeURIComponent(id));
+  VIEW = null; EDIT = false; FEDIT = false; $('setup').hidden = true; render(); cfRender(); syncTasks();
+}
+async function newBatch() {
+  say('יוצר אצווה…');
+  try { const r = await apiPost({ action: 'savebatch', create: true, name: '' }); LIST.push(r); store.set('batches', { ok: true, list: LIST }); pick(r.id); openSetup(true); $('sTitle').textContent = 'אצווה חדשה'; say(''); }
+  catch (e) { say('לא נוצרה – ' + e.message, true); }
+}
 function render() {
-  if (!G) return;
-  const c = G.cycle || {}, po = phaseOf(c);
+  if (!T && !G) return;
+  switcher();
+  const c = CY(), po = phaseOf(c), sens = !T || T.sensors;
   $('title').textContent = c.name || 'אצווה';
   if (!po) {                                       // no stage started yet: only the form
     const D = stageDates(c), next = STAGE_IDS.find((id) => D[id]);
@@ -130,7 +174,8 @@ function render() {
   if (!EDIT) $('setup').hidden = true;
   $('main').hidden = false;
   const ph = po.ph, week = po.week;
-  $('sub').textContent = phaseLabel(po) + ' · מ-' + po.dates[po.stage.id].slice(8) + '.' + po.dates[po.stage.id].slice(5, 7);
+  $('sub').textContent = (T && T.room ? T.room + ' · ' : '') + po.stage.name + ' מ-' + po.dates[po.stage.id].slice(8) + '.' + po.dates[po.stage.id].slice(5, 7);
+  $('dayc').innerHTML = '<span class="sn">' + po.stage.name + '</span><span class="dn">יום ' + po.day + '</span><span class="wn">שבוע ' + week + '</span>' + (po.stage.id === 'flower' ? '<span class="sp">' + esc(ph.name) + '</span>' : '');
   PH = ph; if (!VIEW) VIEW = ph;
   $('pill').textContent = po.stage.id === 'flower' ? ph.en : po.stage.en; $('pill').hidden = false;
   // the bar: rooting · veg · the sub-phases of flowering · drying
@@ -139,18 +184,20 @@ function render() {
   $('phases').querySelectorAll('div').forEach((d) => d.onclick = () => { if (FEDIT) return; VIEW = stageById(d.dataset.p); render(); });
   const onEl = $('phases').querySelector('.on'); if (onEl && $('phases').scrollWidth > $('phases').clientWidth) $('phases').scrollLeft = onEl.offsetLeft - ($('phases').clientWidth - onEl.offsetWidth) / 2;
 
-  const P = plantNow(G.points || [], c), a = P.airNow, fresh = a && Date.now() - a.t < 30 * 60000;
+  ['live', 'chartCard', 'photo'].forEach((id) => $(id).classList.toggle('lay-off', !sens)); $('nosens').hidden = sens;
+  if (!sens || !G) { $('note').textContent = 'יעדי השלבים נקבעים בדף ההגדרות.'; side(); return; }
+  const P = plantNow(G.points || [], G.cycle || {}), a = P.airNow, fresh = a && Date.now() - a.t < 30 * 60000;
   const h = getRange(), t1 = Date.now(), t0 = t1 - h * 3600000, air = P.air.filter((p) => p.t >= t0), wp = P.A.pts.filter((p) => p.t >= t0);
   $('when').textContent = a ? 'עודכן ' + ago(a.t) : '';
   const eta = P.db == null ? '' : P.db > ph.db[1] ? 'מעל היעד – להשקות' : P.db >= ph.db[0] ? 'בטווח – אפשר להשקות' : P.eta != null && P.eta > 0 && P.eta < 48 ? 'השקיה ~' + hm(P.t + P.eta * 3600000) : '';
   $('live').innerHTML = [
-    ktile('VPD', COL.vpd, fresh ? fmt(a.vpd, 2) : '—', 'kPa', ph.vpd[0] + '–' + ph.vpd[1], air.map((p) => p.vpd), fresh ? band(a.vpd, ph.vpd, .15) : 'off', fresh ? '' : 'החיישן לא מדווח'),
-    ktile('טמפ׳', COL.temp, fresh ? fmt(a.temp, 1) : '—', '°C', ph.temp[0] + '–' + ph.temp[1], air.map((p) => p.temp), fresh ? band(a.temp, ph.temp, 1.5) : 'off'),
-    ktile('לחות', COL.rh, fresh ? fmt(a.rh) : '—', '%', ph.rh[0] + '–' + ph.rh[1], air.map((p) => p.rh), fresh ? band(a.rh, ph.rh, 5) : 'off'),
-    ktile('ייבוש', COL.w, P.db != null ? fmt(P.db, 1) : '—', '%', ph.db[0] + '–' + ph.db[1], wp.map((p) => p.db), P.db == null ? 'off' : P.db > ph.db[1] ? 'bad' : '', eta),
+    ktile('VPD', COL.vpd, fresh ? fmt(a.vpd, 2) : '—', 'kPa', ph.vpd[0] + '–' + ph.vpd[1], air.map((p) => p.vpd), fresh ? band(a.vpd, ph.vpd, .15) : 'off', fresh ? '' : 'החיישן לא מדווח', 'vpd'),
+    ktile('טמפ׳', COL.temp, fresh ? fmt(a.temp, 1) : '—', '°C', ph.temp[0] + '–' + ph.temp[1], air.map((p) => p.temp), fresh ? band(a.temp, ph.temp, 1.5) : 'off', '', 'temp'),
+    ktile('לחות', COL.rh, fresh ? fmt(a.rh) : '—', '%', ph.rh[0] + '–' + ph.rh[1], air.map((p) => p.rh), fresh ? band(a.rh, ph.rh, 5) : 'off', '', 'rh'),
+    ktile('ייבוש', COL.w, P.db != null ? fmt(P.db, 1) : '—', '%', ph.db[0] + '–' + ph.db[1], wp.map((p) => p.db), P.db == null ? 'off' : P.db > ph.db[1] ? 'bad' : '', eta, 'db'),
     ktile('EC מצע', COL.rh, '—', '', '', null, 'off', 'אין חיישן מצע עדיין'),
-    ktile('משקל', COL.w, P.w != null ? fmt(P.w) : '—', 'g', P.full ? 'מלא ' + fmt(P.full) : '', wp.map((p) => p.w), P.w != null ? '' : 'off', P.speed != null ? fmt(P.speed) + ' g/h' : ''),
-  ].join('');
+    ktile('משקל', COL.w, P.w != null ? fmt(P.w) : '—', 'g', P.full ? 'מלא ' + fmt(P.full) : '', wp.map((p) => p.w), P.w != null ? '' : 'off', P.speed != null ? fmt(P.speed) + ' g/h' : '', 'w'),
+  ].join(''); metricTiles($('live'), ph);
   const lgHtml = legend(fresh ? a : null, P.w); $('lg').innerHTML = lgHtml;
   multiChart($('big'), { lg: $('lg'), lgHtml, t0, t1, air: P.air, wpts: P.A.pts, ev: P.A.ev, band: ph.vpd, height: window.innerWidth >= 900 ? 300 : 200 });
   $('note').textContent = 'יעדי האקלים והייבוש של כל שלב נקבעים בדף ההגדרות. הדישון בא מהתוכנית שבמחשבון, אלא אם התאמת אותו לאצווה.';
@@ -183,7 +230,7 @@ function side() {
 function stocksList() { const S = (F && F.stocks) || []; return S.length ? S.map((s) => s.id) : ['A', 'B', 'C', 'D', 'E', 'ACID']; }
 $('fAdj').onclick = () => {
   if (!T) return say('הנתונים עוד נטענים – נסה שוב בעוד רגע', true);
-  const v = VIEW, pr = F && (F.programs || []).find((p) => p.id === v.id), own = T.fert && T.fert[v.id], inj = (own && own.inj) || (pr && pr.inj) || {};
+  const v = VIEW, pr = F && (F.programs || []).find((p) => p.id === progOf(v)), own = T.fert && T.fert[v.id], inj = (own && own.inj) || (pr && pr.inj) || {};
   $('fInj').innerHTML = stocksList().map((k) => '<label>' + esc(stockName(k)) + ' · ל׳/קוב<input type="number" inputmode="decimal" step="0.01" min="0" data-k="' + esc(k) + '" value="' + (inj[k] != null ? inj[k] : 0) + '"></label>').join('');
   $('fNote').value = (own && own.note) || '';
   FEDIT = true; $('fEdit').hidden = false; $('fBtns').hidden = true; $('fChips').innerHTML = ''; $('fNoteView').textContent = ''; $('fReset').hidden = !own;
@@ -192,8 +239,8 @@ const closeFert = () => { FEDIT = false; $('fEdit').hidden = true; $('fBtns').hi
 $('fCancel').onclick = closeFert;
 async function pushFertOwn(val, okMsg) {
   const k = VIEW.id; T.fert = T.fert || {}; if (val) T.fert[k] = val; else delete T.fert[k];
-  store.set('batchsrv', T); closeFert();
-  try { const o = {}; o[k] = val; await apiPost({ action: 'savebatch', fert: o }); say(okMsg); } catch (e) { say('לא נשמר בשרת – ' + e.message, true); }
+  keepLocal(); closeFert();
+  try { const o = {}; o[k] = val; await apiPost({ action: 'savebatch', id: T.id, fert: o }); say(okMsg); } catch (e) { say('לא נשמר בשרת – ' + e.message, true); }
 }
 $('fSave').onclick = () => { const inj = {}; $('fInj').querySelectorAll('input').forEach((i) => inj[i.dataset.k] = Math.max(0, Number(i.value) || 0)); pushFertOwn({ inj, note: $('fNote').value.trim() }, 'הדישון לשלב ' + VIEW.name + ' נשמר לאצווה'); };
 $('fReset').onclick = () => pushFertOwn(null, 'חזר לתוכנית שבמחשבון');
@@ -202,9 +249,9 @@ $('fReset').onclick = () => pushFertOwn(null, 'חזר לתוכנית שבמחש�
 let nTimer;
 async function pushNote() {
   if (!T || !VIEW) return; const k = VIEW.id, v = $('nText').value.trim();
-  T.notes = T.notes || {}; if (v) T.notes[k] = v; else delete T.notes[k]; store.set('batchsrv', T);
+  T.notes = T.notes || {}; if (v) T.notes[k] = v; else delete T.notes[k]; keepLocal();
   $('nState').textContent = 'שומר…';
-  try { const o = {}; o[k] = v; await apiPost({ action: 'savebatch', notes: o }); $('nState').textContent = 'נשמר ✓'; } catch (e) { $('nState').textContent = 'לא נשמר'; say('ההערה לא נשמרה בשרת – ' + e.message, true); }
+  try { const o = {}; o[k] = v; await apiPost({ action: 'savebatch', id: T.id, notes: o }); $('nState').textContent = 'נשמר ✓'; } catch (e) { $('nState').textContent = 'לא נשמר'; say('ההערה לא נשמרה בשרת – ' + e.message, true); }
 }
 $('nText').addEventListener('input', () => { $('nState').textContent = ''; clearTimeout(nTimer); nTimer = setTimeout(pushNote, 1200); });
 $('nText').addEventListener('blur', () => { if (nTimer) { clearTimeout(nTimer); nTimer = null; pushNote(); } });
@@ -214,7 +261,7 @@ function tasks() {
   if (!VIEW) return;
   const L = ((T && T.tasks) || []).filter((t) => t.phase === VIEW.id), open = L.filter((t) => !t.done).length;
   $('tCount').textContent = T ? (L.length ? open + ' פתוחות מתוך ' + L.length : '') : 'טוען…';
-  $('tasks').innerHTML = L.length ? L.map((t) => '<div class="task' + (t.done ? ' done' : '') + '" data-id="' + esc(t.id) + '"><span class="cb">' + (t.done ? '✓' : '') + '</span><b>' + esc(t.text) + (t.cs ? '<span class="sync" title="מסונכרן לגאנט">⇄ גאנט</span>' : '') + '<small>' + esc([t.done ? 'בוצע' + (t.doneAt ? ' ' + dm(Date.parse(t.doneAt)) : '') : '', t.who].filter(Boolean).join(' · ')) + '</small></b><button class="x" data-del="1" aria-label="מחק">✕</button></div>').join('') : (T ? '<p class="muted small" style="margin:2px 4px 8px">אין משימות לשלב ' + esc(VIEW.name) + ' – הוסף למטה.</p>' : '');
+  $('tasks').innerHTML = L.length ? L.map((t) => '<div class="task' + (t.done ? ' done' : '') + '" data-id="' + esc(t.id) + '"><span class="cb">' + (t.done ? '✓' : '') + '</span><b>' + esc(t.text) + (t.cs ? '<span class="sync" title="מסונכרן לגאנט">⇄ גאנט</span>' : '') + '<small>' + esc([t.date && !t.done ? 'לביצוע ' + t.date.slice(8) + '.' + t.date.slice(5, 7) : '', t.done ? 'בוצע' + (t.doneAt ? ' ' + dm(Date.parse(t.doneAt)) : '') : '', t.who].filter(Boolean).join(' · ')) + '</small></b><button class="x" data-del="1" aria-label="מחק">✕</button></div>').join('') : (T ? '<p class="muted small" style="margin:2px 4px 8px">אין משימות לשלב ' + esc(VIEW.name) + ' – הוסף למטה.</p>' : '');
   $('tasks').querySelectorAll('.task').forEach((el) => el.onclick = (e) => {
     const i = T.tasks.findIndex((t) => t.id === el.dataset.id); if (i < 0) return;
     if (e.target.dataset.del) { const gone = T.tasks.splice(i, 1)[0]; if (gone && gone.cs && CF.user) cfDelTask((x) => x._bci === gone.id).catch(() => {}); }
@@ -223,47 +270,61 @@ function tasks() {
   });
 }
 async function pushTasks() {
-  tasks(); store.set('batchsrv', T);
-  try { await apiPost({ action: 'savebatch', tasks: T.tasks.map((t) => { const o = Object.assign({}, t); delete o.dirty; return o; }) }); say(''); } catch (e) { say('המשימה לא נשמרה בשרת – ' + e.message, true); }
+  tasks(); keepLocal();
+  try { await apiPost({ action: 'savebatch', id: T.id, tasks: T.tasks.map((t) => { const o = Object.assign({}, t); delete o.dirty; return o; }) }); say(''); } catch (e) { say('המשימה לא נשמרה בשרת – ' + e.message, true); }
 }
-$('tAdd').onclick = () => { const x = $('tNew').value.trim(); if (!x || !VIEW) return; if (!T) return say('הנתונים עוד נטענים – נסה שוב בעוד רגע', true); T.tasks.push({ id: 't' + Date.now(), phase: VIEW.id, text: x, who: $('tWho').value.trim(), done: false, doneAt: '' }); $('tNew').value = ''; pushTasks().then(syncTasks); };
+$('tAdd').onclick = () => { const x = $('tNew').value.trim(); if (!x || !VIEW) return; if (!T) return say('הנתונים עוד נטענים – נסה שוב בעוד רגע', true); T.tasks.push({ id: 't' + Date.now(), phase: VIEW.id, text: x, who: $('tWho').value.trim(), date: $('tDate').value || dayKey(Date.now()), done: false, doneAt: '' }); $('tNew').value = ''; $('tDate').value = dayKey(Date.now()); pushTasks().then(syncTasks); };
+$('tDate').value = dayKey(Date.now());
 $('tNew').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('tAdd').click(); });
 
 async function photo(P) {
   if (!GP) return; const n = await newestPhoto(GP); if (!n) return;
-  const a = P.airNow, ch = (k, v) => '<span class="chip"><span>' + k + '</span>' + v + '</span>';
-  $('photo').innerHTML = '<img src="' + n.src + '" alt=""><div class="ov">' + ch('🕒', hm(Date.parse(n.at)) + ' · ' + ago(Date.parse(n.at))) + (a ? ch('T', fmt(a.temp, 1) + '°') + ch('RH', fmt(a.rh) + '%') + ch('VPD', fmt(a.vpd, 2)) : '') + (P.w != null ? ch('⚖', fmt(P.w) + ' g') : '') + '</div>';
+  // the climate and weight AT THE TIME OF THE PHOTO (±20 min) – nothing older; when there is none, say so
+  const tp = Date.parse(n.at), near = (L, f) => { let b = null, bd = 20 * 60000; L.forEach((p) => { const d = Math.abs(p.t - tp); if (d <= bd && f(p)) { bd = d; b = p; } }); return b; };
+  const a = near(P.air, () => true), w = near(P.A.pts, (p) => p.w != null), ch = (k, v, c) => '<span class="chip' + (c ? ' ' + c : '') + '"><span>' + k + '</span>' + v + '</span>';
+  $('photo').innerHTML = '<img src="' + n.src + '" alt=""><div class="ov">' + ch('🕒', hm(tp) + ' · ' + ago(tp)) + (a ? ch('T', fmt(a.temp, 1) + '°') + ch('RH', fmt(a.rh) + '%') + ch('VPD', fmt(a.vpd, 2)) : ch('⚠', 'חסרים נתוני סביבה', 'miss')) + (w ? ch('⚖', fmt(w.w) + ' g') : '') + '</div>';
   $('photo').querySelector('img').onclick = () => lightbox(n.src, dm(Date.parse(n.at)) + ' ' + hm(Date.parse(n.at)));
 }
 
 /* name + start of flowering. The fields are filled only when the form opens, so a refresh in the middle never wipes what was typed */
 function openSetup(editing) {
-  const c = (G && G.cycle) || {};
-  if ($('setup').hidden || editing) { const D = stageDates(c); $('sName').value = c.name || ''; $('sRoot').value = D.root; $('sGrow').value = D.grow; $('sStart').value = D.flower; $('sDry').value = D.dry; $('sMsg').textContent = ''; }
-  $('sTitle').textContent = editing ? 'שם ותאריך האצווה' : 'הגדרת האצווה';
+  const c = CY();
+  $('roomsDl').innerHTML = ((CF.data && CF.data.rooms) || []).map((r) => '<option value="' + esc(r.name) + '">').join('');
+  $('sMore').hidden = !editing || !T; if (T) $('sArch').textContent = T.archived ? '↩ החזר מהארכיון' : '📦 העבר לארכיון';
+  if ($('setup').hidden || editing) { const D = stageDates(c); $('sName').value = c.name || ''; $('sRoom').value = (T && T.room) || ''; $('sSens').checked = !T || !!T.sensors; $('sRoot').value = D.root; $('sGrow').value = D.grow; $('sStart').value = D.flower; $('sDry').value = D.dry; $('sMsg').textContent = ''; }
+  $('sTitle').textContent = editing ? 'פרטי האצווה' : 'הגדרת האצווה';
   $('sHint').hidden = editing; $('sCancel').hidden = !editing; $('setup').hidden = false; EDIT = true;
 }
 $('edit').onclick = () => { openSetup(true); $('setup').scrollIntoView({ behavior: 'smooth' }); };
 $('sCancel').onclick = () => { EDIT = false; $('setup').hidden = true; render(); };
-async function saveCycle(name, start, stages) {
-  stages = stages || stageDates(G.cycle);
-  const r = await apiPost({ action: 'setgrowcycle', cycle: Object.assign({}, G.cycle, { name, start, stages }) });
-  G.cycle = Object.assign({ stages }, r.cycle || Object.assign({}, G.cycle, { name, start }));
-  ['grow3', 'grow7'].forEach((k) => { const o = store.get(k); if (o) { o.cycle = G.cycle; store.set(k, o); } });   // the kept copies too, so the old date does not come back
+/** saves the batch fields (name, stages, room, sensors) – the batch with the sensors also updates the grow-room cycle on the server */
+async function saveMeta(o) {
+  const r = await apiPost(Object.assign({ action: 'savebatch', id: T.id }, o));
+  const i = LIST.findIndex((x) => x.id === T.id); if (o.sensors) LIST.forEach((x) => x.sensors = false);
+  T = Object.assign(T, r); if (i >= 0) LIST[i] = T; keepLocal();
+  if (T.sensors && G) { G.cycle = Object.assign({}, G.cycle, { name: T.name, start: (T.stages || {}).flower || '', stages: T.stages }); ['grow3', 'grow7'].forEach((k) => { const g = store.get(k); if (g) { g.cycle = G.cycle; store.set(k, g); } }); }
 }
+const saveCycle = (name, start, stages) => saveMeta({ name, stages });
 $('sSave').onclick = async () => {
   const start = $('sStart').value, name = $('sName').value.trim(), m = $('sMsg'), st = { root: $('sRoot').value, grow: $('sGrow').value, flower: start, dry: $('sDry').value };
   const set = STAGE_IDS.filter((k) => st[k]);
   if (!set.length) { m.textContent = 'בחר תאריך התחלה לפחות לשלב אחד'; m.className = 'msg err'; return; }
   for (let i = 1; i < set.length; i++) if (st[set[i]] < st[set[i - 1]]) { m.textContent = stageById(set[i]).name + ' לא יכול/ה להתחיל לפני ' + stageById(set[i - 1]).name; m.className = 'msg err'; return; }
-  if (!G) { m.textContent = 'הנתונים עוד נטענים – נסה שוב בעוד רגע'; m.className = 'msg err'; return; }
+  if (!T) { m.textContent = 'הנתונים עוד נטענים – נסה שוב בעוד רגע'; m.className = 'msg err'; return; }
   $('sSave').disabled = true; m.textContent = 'שומר…'; m.className = 'msg';
   try {
-    await saveCycle(name, start, st);
+    await saveMeta({ name, stages: st, room: $('sRoom').value.trim(), sensors: $('sSens').checked && !T.sensors ? true : undefined });
     EDIT = false; $('setup').hidden = true; VIEW = null; say('האצווה נשמרה'); render(); cfRender();
   } catch (e) { m.textContent = 'לא נשמר – ' + e.message; m.className = 'msg err'; }
   $('sSave').disabled = false;
 };
+$('sArch').onclick = async () => { try { await saveMeta({ archived: !T.archived }); EDIT = false; $('setup').hidden = true; ARCH = false; say(T.archived ? 'האצווה הועברה לארכיון' : 'האצווה הוחזרה'); const nx = LIST.find((b) => !b.archived); if (nx) pick(nx.id); else render(); } catch (e) { say('לא נשמר – ' + e.message, true); } };
+$('sDel').onclick = async () => {
+  if (!confirm('למחוק את האצווה "' + (T.name || 'ללא שם') + '" עם המשימות וההערות שלה? אי אפשר לבטל.')) return;
+  try { const r = await apiPost({ action: 'savebatch', id: T.id, remove: true }); LIST = r.list; keepLocal(); EDIT = false; $('setup').hidden = true; say('האצווה נמחקה'); const nx = LIST.find((b) => !b.archived) || LIST[0]; if (nx) pick(nx.id); }
+  catch (e) { say('לא נמחקה – ' + e.message, true); }
+};
+$('toSens').onclick = (e) => { e.preventDefault(); const b = LIST && LIST.find((x) => x.sensors); if (b) pick(b.id); };
 
 /* ---------- CannaFlow: the batch in the gantt, its dates and tasks, two ways ---------- */
 const ddm = (s) => s ? s.slice(8, 10) + '.' + s.slice(5, 7) : '';
@@ -280,7 +341,7 @@ function cfRender() {
     body.querySelectorAll('[data-l]').forEach((el) => el.onclick = () => { const x = B.find((y) => y.id === el.dataset.l); setLink({ batch: x.id, room: x.room, name: x.name }); });
     return;
   }
-  const mine = stageDates(G && G.cycle), theirs = b.stages, diffs = STAGE_IDS.filter((k) => mine[k] && theirs[k] && mine[k] !== theirs[k]);
+  const mine = stageDates(CY()), theirs = b.stages, diffs = STAGE_IDS.filter((k) => mine[k] && theirs[k] && mine[k] !== theirs[k]);
   const pull = STAGE_IDS.filter((k) => theirs[k] && theirs[k] !== mine[k]), push = STAGE_IDS.filter((k) => mine[k] && theirs[k] && mine[k] !== theirs[k]);
   const open = b.tasks.filter((t) => !t.done && !t._bci).slice(0, 6);
   const row = (k) => { const n = stageById(k).name, m = mine[k], t = theirs[k]; return '<tr><td>' + n + '</td><td>' + (t ? ddm(t) : '<span class="muted">—</span>') + '</td><td>' + (m ? ddm(m) : '<span class="muted">—</span>') + '</td><td>' + (m && t ? (m === t ? '<span style="color:var(--green)">✓</span>' : '<span class="warn">≠</span>') : '') + '</td></tr>'; };
@@ -291,14 +352,14 @@ function cfRender() {
     (open.length ? '<div class="small muted" style="margin:6px 0 2px">המשימות הבאות של האצווה בגאנט:</div>' + open.map((t) => '<div class="cft"><button class="cb" data-t="' + esc(t.id) + '"></button><span>' + esc(t.name) + ' <small>' + ddm(t.date) + '</small></span></div>').join('') : '') +
     '<div class="links" style="margin-top:8px"><a class="btn" href="mgmt.html#rooms">כל החדרים ‹</a><button class="btn" id="cfUnlink">נתק</button></div>';
   const P = $('cfPush'); if (P) P.onclick = async () => { P.disabled = true; const o = {}; push.forEach((k) => o[k] = mine[k]); try { await cfMoveStages(b.id, o, $('cfShift').checked); say('הגאנט עודכן: ' + push.map((k) => stageById(k).name + ' ' + ddm(mine[k])).join(', ')); } catch (e) { say('לא עודכן – ' + e.message, true); } cfRender(); };
-  const Q = $('cfPull'); if (Q) Q.onclick = async () => { Q.disabled = true; const st = Object.assign({}, mine); pull.forEach((k) => st[k] = theirs[k]); try { await saveCycle((G.cycle && G.cycle.name) || b.name, st.flower, st); VIEW = null; render(); say('התאריכים עודכנו מהגאנט'); } catch (e) { say('לא עודכן – ' + e.message, true); } cfRender(); };
+  const Q = $('cfPull'); if (Q) Q.onclick = async () => { Q.disabled = true; const st = Object.assign({}, mine); pull.forEach((k) => st[k] = theirs[k]); try { await saveCycle(T.name || b.name, st.flower, st); VIEW = null; render(); say('התאריכים עודכנו מהגאנט'); } catch (e) { say('לא עודכן – ' + e.message, true); } cfRender(); };
   $('cfUnlink').onclick = () => setLink(null);
   body.querySelectorAll('[data-t]').forEach((el) => el.onclick = async () => { el.disabled = true; el.textContent = '✓'; try { await cfSetDone(el.dataset.t, true); say('סומן כבוצע בגאנט ✓'); } catch (e) { say('לא נשמר – ' + e.message, true); } cfRender(); });
 }
 async function setLink(link) {
   if (!T) return say('הנתונים עוד נטענים – נסה שוב בעוד רגע', true);
-  T.link = link; store.set('batchsrv', T); cfRender();
-  try { await apiPost({ action: 'savebatch', link }); say(link ? 'מחובר ל"' + link.name + '" בגאנט' : 'נותק מהגאנט'); syncTasks(); } catch (e) { say('לא נשמר – ' + e.message, true); }
+  T.link = link; keepLocal(); cfRender();
+  try { await apiPost({ action: 'savebatch', id: T.id, link }); say(link ? 'מחובר ל"' + link.name + '" בגאנט' : 'נותק מהגאנט'); syncTasks(); } catch (e) { say('לא נשמר – ' + e.message, true); }
 }
 /* the phase tasks of BCI live in the gantt too (marked _bci): added there, done/undone both ways, deleted both ways */
 let syncing = false;
@@ -310,7 +371,7 @@ async function syncTasks() {
       const c = (CF.data.tasks || []).find((x) => x._bci === t.id), ph = stageById(t.phase);
       if (!c) {
         if (t.cs) { T.tasks = T.tasks.filter((x) => x !== t); changed = true; continue; }        // deleted in the gantt
-        await cfAddTask({ _bci: t.id, name: t.text, dept: 'grow', room: L.room, growRoom: L.room, batch: L.batch, done: !!t.done, note: 'BCI · שלב ' + (ph ? ph.name : t.phase) + (t.who ? ' · ' + t.who : '') });
+        await cfAddTask({ _bci: t.id, name: t.text, dept: 'grow', room: L.room, growRoom: L.room, batch: L.batch, done: !!t.done, date: t.date || dayKey(Date.now()), note: 'BCI · שלב ' + (ph ? ph.name : t.phase) + (t.who ? ' · ' + t.who : '') });
         t.cs = true; delete t.dirty; changed = true; continue;
       }
       if (!!c.done !== !!t.done) {
@@ -330,10 +391,16 @@ CF.starting = true; cfStart().then(() => { CF.starting = false; cfRender(); sync
 async function loadAll() {
   $('refresh').classList.add('spin');
   const err = (e, had) => say((had ? 'מוצגים הנתונים האחרונים שנשמרו · ' : '') + e.message, true);
-  const keep = (j) => { if (EDIT && G && j) j.cycle = j.cycle || G.cycle; G = j; render(); };
+  const keep = (j) => { G = j; render(); };
   await Promise.all([
     (() => { const h = getRange(); return h > 168 ? api('action=grow&days=30').then(keep).catch((e) => err(e, false)) : h > 48 ? cached('grow7', 'action=grow&days=7', keep, err) : cached('grow3', 'action=grow&days=3', keep, err); })(),
-    cached('batchsrv', 'action=batch', (j) => { if (T) j.tasks.forEach((t) => { const o = T.tasks.find((x) => x.id === t.id); if (o && o.dirty) Object.assign(t, { done: o.done, doneAt: o.doneAt, dirty: true }); }); T = j; side(); cfRender(); syncTasks(); }, () => {}),
+    cached('batches', 'action=batches', (j) => {
+      if (!j.list || !j.list.length) return;
+      if (T) { const o = j.list.find((b) => b.id === T.id); if (o) o.tasks.forEach((t) => { const d = T.tasks.find((x) => x.id === t.id); if (d && d.dirty) Object.assign(t, { done: d.done, doneAt: d.doneAt, dirty: true }); }); }
+      if (EDIT && T) { const o = j.list.find((b) => b.id === T.id); if (o) Object.assign(o, { name: T.name, stages: T.stages, room: T.room }); }
+      LIST = j.list; T = LIST.find((b) => b.id === (T ? T.id : BID)) || LIST.find((b) => b.sensors && !b.archived) || LIST.find((b) => !b.archived) || LIST[0];
+      BID = T.id; render(); cfRender(); syncTasks();
+    }, () => {}),
     cached('fertsrv', 'action=fert', (j) => { F = j; side(); }, () => {}),
     cached('growphotos', 'action=growphotos&days=7', (j) => { GP = j; render(); }, () => {}),
   ]);
