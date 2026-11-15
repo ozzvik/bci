@@ -12,23 +12,25 @@
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 <style>
-  .tile .tg { font-size: 11.5px; color: var(--faint); margin-top: 2px; unicode-bidi: plaintext; }
-  .tile .st { position: absolute; top: 11px; inset-inline-end: 12px; font-size: 13px; font-weight: 800; }
+  .tile .tg { font-size: calc(11.5px * var(--fs, 1)); color: var(--faint); margin-top: 2px; unicode-bidi: plaintext; }
+  .tile .st { position: absolute; top: 11px; inset-inline-end: 12px; font-size: calc(13px * var(--fs, 1)); font-weight: 800; }
   .tile.good .st { color: var(--green); } .tile.warn .st { color: var(--amber); } .tile.bad .st { color: var(--red); } .tile.off .v, .tile.off .st { color: var(--faint); }
   .fertc { border-color: color-mix(in srgb, var(--cyan) 30%, var(--line)); }
   .task { background: var(--card2) !important; }
   .task { display: flex; align-items: center; gap: 10px; background: var(--card); border: 1px solid var(--line); border-inline-start: 3px solid var(--violet); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; cursor: pointer; }
-  .task .cb { width: 22px; height: 22px; border-radius: 7px; border: 1.5px solid var(--muted); flex: none; display: grid; place-items: center; font-size: 13px; color: #06210f; }
+  .task .cb { width: 22px; height: 22px; border-radius: 7px; border: 1.5px solid var(--muted); flex: none; display: grid; place-items: center; font-size: calc(13px * var(--fs, 1)); color: #06210f; }
   .task.done .cb { background: var(--green-d); border-color: var(--green-d); color: #fff; } .task.done b { color: var(--muted); text-decoration: line-through; }
-  .task b { flex: 1; font-size: 14px; } .task b small { display: block; color: var(--muted); font-weight: 500; font-size: 11.5px; text-decoration: none; }
-  .task .x { color: var(--faint); font-size: 16px; padding: 0 4px; }
-  .cfd { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 4px 0 8px; font-size: 13.5px; }
-  .cfd .warn { color: var(--amber); font-weight: 700; }
-  .cft { display: flex; align-items: center; gap: 9px; padding: 7px 2px; border-top: 1px solid var(--line); font-size: 13.5px; }
-  .cft .cb { width: 22px; height: 22px; border-radius: 7px; border: 1.5px solid var(--muted); display: grid; place-items: center; font-size: 12px; background: none; color: #fff; padding: 0; flex: none; }
+  .task b { flex: 1; font-size: calc(14px * var(--fs, 1)); } .task b small { display: block; color: var(--muted); font-weight: 500; font-size: calc(11.5px * var(--fs, 1)); text-decoration: none; }
+  .task .x { color: var(--faint); font-size: calc(16px * var(--fs, 1)); padding: 0 4px; }
+  .cfd { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 4px 0 8px; font-size: calc(13.5px * var(--fs, 1)); }
+  .cfd .warn, .cfs .warn { color: var(--amber); font-weight: 700; }
+  .cfs { width: 100%; border-collapse: collapse; font-size: calc(13px * var(--fs, 1)); margin: 2px 0 4px; }
+  .cfs th { color: var(--muted); font-weight: 600; text-align: start; padding: 3px 4px; } .cfs td { padding: 5px 4px; border-top: 1px solid var(--line); }
+  .cft { display: flex; align-items: center; gap: 9px; padding: 7px 2px; border-top: 1px solid var(--line); font-size: calc(13.5px * var(--fs, 1)); }
+  .cft .cb { width: 22px; height: 22px; border-radius: 7px; border: 1.5px solid var(--muted); display: grid; place-items: center; font-size: calc(12px * var(--fs, 1)); background: none; color: #fff; padding: 0; flex: none; }
   .cft.done .cb { background: var(--green-d); border-color: var(--green-d); } .cft.done span { color: var(--muted); text-decoration: line-through; }
   .cft span { flex: 1; } .cft small { color: var(--muted); }
-  .task .sync { font-size: 10.5px; color: var(--green); font-weight: 700; margin-inline-start: 4px; }
+  .task .sync { font-size: calc(10.5px * var(--fs, 1)); color: var(--green); font-weight: 700; margin-inline-start: 4px; }
   #tNew, #tWho { font: inherit; color: var(--ink); background: var(--card2); border: 1px solid var(--line); border-radius: 10px; padding: 9px 10px; min-width: 0; }
 </style>
 </head>
@@ -44,17 +46,20 @@
   <!-- name + start of flowering: shown when missing, or when "edit" is pressed -->
   <div class="card setup" id="setup" hidden>
     <h2 id="sTitle">הגדרת האצווה</h2>
-    <p class="muted small" style="margin-top:0" id="sHint">כדי לדעת באיזה שלב האצווה ומה היעדים שלה צריך שם ותאריך תחילת פריחה.</p>
+    <p class="muted small" style="margin-top:0" id="sHint">כדי לדעת באיזה שלב האצווה ומה היעדים שלה צריך שם ותאריך התחלה של השלב שהיא בו. בכל שלב הספירה מתחילה מיום 1.</p>
     <div class="form">
-      <label style="flex:1 1 180px">שם האצווה / זן<input id="sName" placeholder="OG Kush · אצווה 12" style="direction:rtl;text-align:start"></label>
-      <label style="flex:1 1 150px">תחילת פריחה<input id="sStart" type="date"></label>
+      <label style="flex:1 1 100%">שם האצווה / זן<input id="sName" placeholder="OG Kush · אצווה 12" style="direction:rtl;text-align:start"></label>
+      <label style="flex:1 1 140px">תחילת השרשה<input id="sRoot" type="date"></label>
+      <label style="flex:1 1 140px">תחילת צימוח<input id="sGrow" type="date"></label>
+      <label style="flex:1 1 140px">תחילת הפרחה<input id="sStart" type="date"></label>
+      <label style="flex:1 1 140px">תחילת ייבוש<input id="sDry" type="date"></label>
       <button class="btn primary" id="sSave">שמור</button><button class="btn" id="sCancel" hidden>ביטול</button>
     </div>
     <div class="msg" id="sMsg"></div>
   </div>
 
   <div id="main" hidden>
-    <div class="phasebar" id="phases"></div>
+    <div class="phasebar scroll" id="phases"></div>
     <div class="kp" id="live" style="--n:6;margin-bottom:12px"></div>
     <div class="g2">
       <div class="room" style="margin:0">
@@ -63,10 +68,10 @@
         <div class="chart" id="big"></div>
         <div class="muted small" style="margin-top:4px">הפס הירוק = טווח היעד ל-VPD בשלב · נקודות כחולות = השקיות · גע בגרף לערכים באותו רגע</div>
       </div>
-      <div>
+      <div data-lay="batch">
         <div class="muted small" id="viewing" style="margin:0 4px 8px" hidden></div>
         <!-- fertigation of the phase: the program of the calculator, or the values set for this batch -->
-        <div class="room fertc">
+        <div class="room fertc" data-sec="fert">
           <div class="rt"><b>💧 דישון לשלב</b><span class="tag" id="fTag" hidden>מותאם לאצווה</span><span class="fl"></span><span id="fEC"></span></div>
           <div class="chips" id="fChips"></div>
           <div class="small muted" id="fNoteView" style="margin-top:8px;white-space:pre-wrap"></div>
@@ -77,21 +82,21 @@
           </div>
           <div class="links" id="fBtns" style="margin-top:9px"><button class="btn" id="fAdj">✏️ התאם לאצווה</button><a class="btn" id="fCalc" href="fert.html">פתח במחשבון ‹</a></div>
         </div>
-        <div class="room">
+        <div class="room" data-sec="notes">
           <div class="rt"><b>📝 הערות לשלב</b><span class="fl"></span><span id="nState"></span></div>
           <textarea class="note" id="nText" placeholder="מה חשוב לזכור בשלב הזה באצווה הזאת"></textarea>
         </div>
-        <div class="room">
+        <div class="room" data-sec="tasks">
           <div class="rt"><b>📋 משימות השלב</b><span class="fl"></span><span id="tCount"></span></div>
           <div id="tasks"></div>
           <div class="form" style="margin-top:8px"><input id="tNew" placeholder="משימה חדשה לשלב הזה" style="flex:1"><input id="tWho" placeholder="מי" style="width:70px"><button class="btn" id="tAdd">הוסף</button></div>
         </div>
-        <div class="room" id="cfCard">
+        <div class="room" id="cfCard" data-sec="cf">
           <div class="rt"><b>🔗 CannaFlow · גאנט</b><span class="fl"></span><span id="cfState" class="muted small"></span></div>
           <div id="cfBody"><p class="muted small" style="margin:0">טוען…</p></div>
         </div>
-        <div class="photo" id="photo"><div class="empty">אין תמונה</div></div>
-        <div class="links"><a class="btn" href="grow.html">📈 גרפים מפורטים</a><a class="btn" href="photos.html">🎬 תמונות</a><button class="btn" id="edit">✏️ שם ותאריך האצווה</button></div>
+        <div class="photo" id="photo" data-sec="photo"><div class="empty">אין תמונה</div></div>
+        <div class="links" data-sec="links"><a class="btn" href="grow.html">📈 גרפים מפורטים</a><a class="btn" href="photos.html">🎬 תמונות</a><button class="btn" id="edit">✏️ שם ותאריכי השלבים</button></div>
         <p class="muted small" id="note" style="margin-top:10px"></p>
       </div>
     </div>
@@ -108,27 +113,31 @@ let PH = null, VIEW = null;                        // the phase the batch is in 
 let EDIT = false, FEDIT = false;                   // the name/date form and the fertigation form are open – a refresh must not touch them
 const getRange = rangeSeg($('rng'), [[24, '24 שע׳'], [48, 'יומיים'], [168, '7 ימים'], [720, '30 יום']], () => loadAll());
 const say = (t, bad) => { $('msg').textContent = t || ''; $('msg').className = 'msg' + (bad ? ' err' : ''); };
+const progOf = (v) => v.fert != null ? v.fert : v.id;            // the fertigation program of a stage / sub-phase (settings page)
 const stockName = (k) => k === 'ACID' ? 'חומצה' : k;
 
 function render() {
   if (!G) return;
   const c = G.cycle || {}, po = phaseOf(c);
   $('title').textContent = c.name || 'אצווה';
-  if (!po) {                                       // no start date (or it is in the future): only the form
-    const future = c.start && cycleDay(c, Date.now()) < 1;
+  if (!po) {                                       // no stage started yet: only the form
+    const D = stageDates(c), next = STAGE_IDS.find((id) => D[id]);
     $('main').hidden = true; $('pill').hidden = true;
-    $('sub').textContent = future ? 'הפריחה מתחילה ב-' + c.start.split('-').reverse().join('.') : 'חסר תאריך תחילת פריחה';
+    $('sub').textContent = next ? stageById(next).name + ' מתחיל/ה ב-' + D[next].split('-').reverse().join('.') : 'חסרים תאריכי השלבים';
     if (!EDIT) openSetup(false);
     return;
   }
   if (!EDIT) $('setup').hidden = true;
   $('main').hidden = false;
   const ph = po.ph, week = po.week;
-  $('sub').textContent = 'יום ' + po.day + ' · שבוע ' + week + ' · פריחה מ-' + c.start.slice(8) + '.' + c.start.slice(5, 7);
+  $('sub').textContent = phaseLabel(po) + ' · מ-' + po.dates[po.stage.id].slice(8) + '.' + po.dates[po.stage.id].slice(5, 7);
   PH = ph; if (!VIEW) VIEW = ph;
-  $('pill').textContent = ph.en; $('pill').hidden = false;
-  $('phases').innerHTML = RECIPE.map((p) => '<div data-p="' + p.id + '" style="flex:' + (Math.min(p.to, 9) - p.from + 1) + '" class="' + (p === ph ? 'on' : week > p.to ? 'done' : '') + (p === VIEW && p !== ph ? ' sel' : '') + '">' + p.name + '</div>').join('');
-  $('phases').querySelectorAll('div').forEach((d) => d.onclick = () => { if (FEDIT) return; VIEW = RECIPE.find((p) => p.id === d.dataset.p); render(); });
+  $('pill').textContent = po.stage.id === 'flower' ? ph.en : po.stage.en; $('pill').hidden = false;
+  // the bar: rooting · veg · the sub-phases of flowering · drying
+  const bar = [STAGES[0], STAGES[1]].concat(RECIPE, [STAGES[3]]), curI = bar.indexOf(ph);
+  $('phases').innerHTML = bar.map((p, i) => '<div data-p="' + p.id + '" style="flex:' + (p.from ? Math.min(p.to, 9) - p.from + 1 : 2) + '" class="' + (p === ph ? 'on' : i < curI ? 'done' : '') + (p === VIEW && p !== ph ? ' sel' : '') + (p.from ? ' fl' : '') + '">' + p.name + '</div>').join('');
+  $('phases').querySelectorAll('div').forEach((d) => d.onclick = () => { if (FEDIT) return; VIEW = stageById(d.dataset.p); render(); });
+  const onEl = $('phases').querySelector('.on'); if (onEl && $('phases').scrollWidth > $('phases').clientWidth) $('phases').scrollLeft = onEl.offsetLeft - ($('phases').clientWidth - onEl.offsetWidth) / 2;
 
   const P = plantNow(G.points || [], c), a = P.airNow, fresh = a && Date.now() - a.t < 30 * 60000;
   const h = getRange(), t1 = Date.now(), t0 = t1 - h * 3600000, air = P.air.filter((p) => p.t >= t0), wp = P.A.pts.filter((p) => p.t >= t0);
@@ -144,7 +153,7 @@ function render() {
   ].join('');
   const lgHtml = legend(fresh ? a : null, P.w); $('lg').innerHTML = lgHtml;
   multiChart($('big'), { lg: $('lg'), lgHtml, t0, t1, air: P.air, wpts: P.A.pts, ev: P.A.ev, band: ph.vpd, height: window.innerWidth >= 900 ? 300 : 200 });
-  $('note').textContent = 'יעדי האקלים והייבוש של כל שלב הם ערכי התחלה כלליים. הדישון בא מהתוכנית שבמחשבון, אלא אם התאמת אותו לאצווה.';
+  $('note').textContent = 'יעדי האקלים והייבוש של כל שלב נקבעים בדף ההגדרות. הדישון בא מהתוכנית שבמחשבון, אלא אם התאמת אותו לאצווה.';
   side(); photo(P);
 }
 
@@ -152,16 +161,16 @@ function render() {
 function side() {
   if (!VIEW) return;
   const v = VIEW;
-  $('viewing').hidden = v === PH; $('viewing').innerHTML = v === PH ? '' : 'מוצג השלב <b>' + v.name + '</b> (שבוע ' + v.from + (v.to > v.from && v.to < 99 ? '–' + v.to : v.to >= 99 ? '+' : '') + ') · <a href="#" id="backNow" style="color:var(--accent)">חזרה לשלב הנוכחי</a>';
+  $('viewing').hidden = v === PH; $('viewing').innerHTML = v === PH ? '' : 'מוצג השלב <b>' + v.name + '</b>' + (v.from ? ' (שבוע ' + v.from + (v.to > v.from && v.to < 99 ? '–' + v.to : v.to >= 99 ? '+' : '') + ' בפריחה)' : '') + ' · <a href="#" id="backNow" style="color:var(--accent)">חזרה לשלב הנוכחי</a>';
   const bn = $('backNow'); if (bn) bn.onclick = (e) => { e.preventDefault(); VIEW = PH; render(); };
   // fertigation: the values of this batch if set, else the program with the same id in the calculator
-  const pr = F && (F.programs || []).find((p) => p.id === v.id), own = T && T.fert && T.fert[v.id];
+  const pr = F && (F.programs || []).find((p) => p.id === progOf(v)), own = T && T.fert && T.fert[v.id];
   const inj = own ? own.inj : pr ? pr.inj : null;
-  $('fCalc').href = 'fert.html#' + v.id; $('fTag').hidden = !own;
+  $('fCalc').href = 'fert.html#' + progOf(v); $('fTag').hidden = !own;
   $('fEC').innerHTML = pr ? '<bdi>' + esc(pr.name) + '</bdi>' + (pr.targetEC && !own ? ' · EC ' + fmt(pr.targetEC, 1) : '') : '';
   if (!FEDIT) {
     $('fChips').innerHTML = inj ? Object.keys(inj).filter((k) => inj[k] > 0).map((k) => '<span class="chip"><span>' + esc(stockName(k)) + '</span>' + fmt(inj[k], 2) + '</span>').join('') + '<span class="muted small" style="align-self:center">ל׳ לקוב</span>'
-      : '<span class="muted small">' + (v.id === 'flush' ? 'שטיפה – מים בלבד' : F ? 'אין תוכנית דישון לשלב הזה – אפשר ליצור במחשבון או להתאים לאצווה' : 'טוען…') + '</span>';
+      : '<span class="muted small">' + (v.id === 'flush' || v.id === 'dry' ? 'אין דישון בשלב הזה' : F ? 'אין תוכנית דישון לשלב הזה – אפשר ליצור במחשבון או להתאים לאצווה' : 'טוען…') + '</span>';
     $('fNoteView').textContent = own && own.note ? '📝 ' + own.note : '';
   }
   // notes: do not overwrite what is being typed
@@ -230,24 +239,27 @@ async function photo(P) {
 /* name + start of flowering. The fields are filled only when the form opens, so a refresh in the middle never wipes what was typed */
 function openSetup(editing) {
   const c = (G && G.cycle) || {};
-  if ($('setup').hidden || editing) { $('sName').value = c.name || ''; $('sStart').value = c.start || ''; $('sMsg').textContent = ''; }
+  if ($('setup').hidden || editing) { const D = stageDates(c); $('sName').value = c.name || ''; $('sRoot').value = D.root; $('sGrow').value = D.grow; $('sStart').value = D.flower; $('sDry').value = D.dry; $('sMsg').textContent = ''; }
   $('sTitle').textContent = editing ? 'שם ותאריך האצווה' : 'הגדרת האצווה';
   $('sHint').hidden = editing; $('sCancel').hidden = !editing; $('setup').hidden = false; EDIT = true;
 }
 $('edit').onclick = () => { openSetup(true); $('setup').scrollIntoView({ behavior: 'smooth' }); };
 $('sCancel').onclick = () => { EDIT = false; $('setup').hidden = true; render(); };
-async function saveCycle(name, start) {
-  const r = await apiPost({ action: 'setgrowcycle', cycle: Object.assign({}, G.cycle, { name, start }) });
-  G.cycle = r.cycle || Object.assign({}, G.cycle, { name, start });
+async function saveCycle(name, start, stages) {
+  stages = stages || stageDates(G.cycle);
+  const r = await apiPost({ action: 'setgrowcycle', cycle: Object.assign({}, G.cycle, { name, start, stages }) });
+  G.cycle = Object.assign({ stages }, r.cycle || Object.assign({}, G.cycle, { name, start }));
   ['grow3', 'grow7'].forEach((k) => { const o = store.get(k); if (o) { o.cycle = G.cycle; store.set(k, o); } });   // the kept copies too, so the old date does not come back
 }
 $('sSave').onclick = async () => {
-  const start = $('sStart').value, name = $('sName').value.trim(), m = $('sMsg');
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(start)) { m.textContent = 'בחר תאריך תחילת פריחה'; m.className = 'msg err'; return; }
+  const start = $('sStart').value, name = $('sName').value.trim(), m = $('sMsg'), st = { root: $('sRoot').value, grow: $('sGrow').value, flower: start, dry: $('sDry').value };
+  const set = STAGE_IDS.filter((k) => st[k]);
+  if (!set.length) { m.textContent = 'בחר תאריך התחלה לפחות לשלב אחד'; m.className = 'msg err'; return; }
+  for (let i = 1; i < set.length; i++) if (st[set[i]] < st[set[i - 1]]) { m.textContent = stageById(set[i]).name + ' לא יכול/ה להתחיל לפני ' + stageById(set[i - 1]).name; m.className = 'msg err'; return; }
   if (!G) { m.textContent = 'הנתונים עוד נטענים – נסה שוב בעוד רגע'; m.className = 'msg err'; return; }
   $('sSave').disabled = true; m.textContent = 'שומר…'; m.className = 'msg';
   try {
-    await saveCycle(name, start);
+    await saveCycle(name, start, st);
     EDIT = false; $('setup').hidden = true; VIEW = null; say('האצווה נשמרה'); render(); cfRender();
   } catch (e) { m.textContent = 'לא נשמר – ' + e.message; m.className = 'msg err'; }
   $('sSave').disabled = false;
@@ -268,15 +280,18 @@ function cfRender() {
     body.querySelectorAll('[data-l]').forEach((el) => el.onclick = () => { const x = B.find((y) => y.id === el.dataset.l); setLink({ batch: x.id, room: x.room, name: x.name }); });
     return;
   }
-  const mine = G && G.cycle && G.cycle.start, theirs = b.flower, diff = mine && theirs && mine !== theirs;
+  const mine = stageDates(G && G.cycle), theirs = b.stages, diffs = STAGE_IDS.filter((k) => mine[k] && theirs[k] && mine[k] !== theirs[k]);
+  const pull = STAGE_IDS.filter((k) => theirs[k] && theirs[k] !== mine[k]), push = STAGE_IDS.filter((k) => mine[k] && theirs[k] && mine[k] !== theirs[k]);
   const open = b.tasks.filter((t) => !t.done && !t._bci).slice(0, 6);
+  const row = (k) => { const n = stageById(k).name, m = mine[k], t = theirs[k]; return '<tr><td>' + n + '</td><td>' + (t ? ddm(t) : '<span class="muted">—</span>') + '</td><td>' + (m ? ddm(m) : '<span class="muted">—</span>') + '</td><td>' + (m && t ? (m === t ? '<span style="color:var(--green)">✓</span>' : '<span class="warn">≠</span>') : '') + '</td></tr>'; };
   body.innerHTML = '<div class="cfd"><b>' + esc(b.name) + '</b><small class="muted">' + esc(b.roomName) + '</small></div>' +
-    '<div class="cfd">' + (theirs ? 'הפרחה בגאנט: <b>' + ddm(theirs) + '</b>' : '<span class="muted">אין משימת "הפרחה" באצווה בגאנט</span>') + (b.harvest ? ' · קציר <b>' + ddm(b.harvest) + '</b>' : '') + (diff ? ' · <span class="warn">ב-BCI: ' + ddm(mine) + '</span>' : theirs && mine ? ' <span style="color:var(--green)">✓ תואם</span>' : '') + '</div>' +
-    (diff && CF.user ? '<div class="links" style="margin-bottom:6px"><button class="btn primary" id="cfPush">עדכן את הגאנט ל-' + ddm(mine) + '</button><button class="btn" id="cfPull">קח מהגאנט (' + ddm(theirs) + ')</button></div><label class="small muted" style="display:flex;gap:6px;align-items:center;margin-bottom:6px"><input type="checkbox" id="cfShift" checked style="width:auto">להזיז גם את המשימות שאחרי ההפרחה (קציר, ייבוש…) באותם ימים</label>' : '') +
+    '<table class="cfs"><tr><th></th><th>בגאנט</th><th>ב-BCI</th><th></th></tr>' + STAGE_IDS.map(row).join('') + '</table>' +
+    (CF.user && (push.length || pull.length) ? '<div class="links" style="margin:8px 0 6px">' + (push.length ? '<button class="btn primary" id="cfPush">עדכן את הגאנט לפי BCI</button>' : '') + (pull.length ? '<button class="btn" id="cfPull">קח את התאריכים מהגאנט</button>' : '') + '</div>' +
+      (push.length ? '<label class="small muted" style="display:flex;gap:6px;align-items:center;margin-bottom:6px"><input type="checkbox" id="cfShift" checked style="width:auto">להזיז גם את שאר המשימות של האצווה שאחרי כל שלב באותם ימים</label>' : '') : '') +
     (open.length ? '<div class="small muted" style="margin:6px 0 2px">המשימות הבאות של האצווה בגאנט:</div>' + open.map((t) => '<div class="cft"><button class="cb" data-t="' + esc(t.id) + '"></button><span>' + esc(t.name) + ' <small>' + ddm(t.date) + '</small></span></div>').join('') : '') +
     '<div class="links" style="margin-top:8px"><a class="btn" href="mgmt.html#rooms">כל החדרים ‹</a><button class="btn" id="cfUnlink">נתק</button></div>';
-  const P = $('cfPush'); if (P) P.onclick = async () => { P.disabled = true; try { await cfMoveFlower(b.id, mine, $('cfShift').checked); say('הגאנט עודכן: הפרחה ' + ddm(mine)); } catch (e) { say('לא עודכן – ' + e.message, true); } cfRender(); };
-  const Q = $('cfPull'); if (Q) Q.onclick = async () => { Q.disabled = true; try { await saveCycle((G.cycle && G.cycle.name) || b.name, theirs); VIEW = null; render(); say('תאריך הפריחה עודכן מהגאנט'); } catch (e) { say('לא עודכן – ' + e.message, true); } cfRender(); };
+  const P = $('cfPush'); if (P) P.onclick = async () => { P.disabled = true; const o = {}; push.forEach((k) => o[k] = mine[k]); try { await cfMoveStages(b.id, o, $('cfShift').checked); say('הגאנט עודכן: ' + push.map((k) => stageById(k).name + ' ' + ddm(mine[k])).join(', ')); } catch (e) { say('לא עודכן – ' + e.message, true); } cfRender(); };
+  const Q = $('cfPull'); if (Q) Q.onclick = async () => { Q.disabled = true; const st = Object.assign({}, mine); pull.forEach((k) => st[k] = theirs[k]); try { await saveCycle((G.cycle && G.cycle.name) || b.name, st.flower, st); VIEW = null; render(); say('התאריכים עודכנו מהגאנט'); } catch (e) { say('לא עודכן – ' + e.message, true); } cfRender(); };
   $('cfUnlink').onclick = () => setLink(null);
   body.querySelectorAll('[data-t]').forEach((el) => el.onclick = async () => { el.disabled = true; el.textContent = '✓'; try { await cfSetDone(el.dataset.t, true); say('סומן כבוצע בגאנט ✓'); } catch (e) { say('לא נשמר – ' + e.message, true); } cfRender(); });
 }
@@ -292,7 +307,7 @@ async function syncTasks() {
   syncing = true; let changed = false;
   try {
     for (const t of T.tasks.slice()) {
-      const c = (CF.data.tasks || []).find((x) => x._bci === t.id), ph = RECIPE.find((p) => p.id === t.phase);
+      const c = (CF.data.tasks || []).find((x) => x._bci === t.id), ph = stageById(t.phase);
       if (!c) {
         if (t.cs) { T.tasks = T.tasks.filter((x) => x !== t); changed = true; continue; }        // deleted in the gantt
         await cfAddTask({ _bci: t.id, name: t.text, dept: 'grow', room: L.room, growRoom: L.room, batch: L.batch, done: !!t.done, note: 'BCI · שלב ' + (ph ? ph.name : t.phase) + (t.who ? ' · ' + t.who : '') });

@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a101c">
+<title>הגדרות · BCI</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+  .tabs { display: flex; gap: 4px; background: var(--card2); border: 1px solid var(--line); border-radius: 12px; padding: 4px; margin-bottom: 12px; }
+  .tabs button { flex: 1; font: inherit; font-size: calc(13.5px * var(--fs, 1)); font-weight: 700; padding: 9px 2px; border: 0; border-radius: 9px; background: none; color: var(--muted); }
+  .tabs button.on { background: var(--accent); color: #fff; }
+  .sc { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 12px; }
+  .sc h3 { margin: 0 0 4px; font-size: calc(15px * var(--fs, 1)); }
+  .sc > p { margin: 0 0 10px; color: var(--muted); font-size: calc(12.5px * var(--fs, 1)); }
+  .st { border-top: 1px solid var(--line); padding: 10px 0 4px; }
+  .st:first-of-type { border-top: 0; }
+  .st .hd { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
+  .st .hd input { font: inherit; font-weight: 700; color: var(--ink); background: var(--card2); border: 1px solid var(--line); border-radius: 9px; padding: 6px 8px; min-width: 0; }
+  .st .hd .nm { flex: 1 1 120px; } .st .hd .en { width: 90px; direction: ltr; }
+  .rng { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+  .rng label { display: flex; align-items: center; gap: 4px; font-size: calc(12px * var(--fs, 1)); color: var(--muted); background: var(--card2); border-radius: 9px; padding: 4px 6px; }
+  .rng label span { flex: 1; }
+  .rng input, .wk input { width: 48px; font: inherit; font-weight: 700; text-align: center; color: var(--ink); background: var(--card); border: 1px solid var(--line); border-radius: 7px; padding: 5px 2px; direction: ltr; }
+  .rng select, .ff select { font: inherit; color: var(--ink); background: var(--card); border: 1px solid var(--line); border-radius: 7px; padding: 5px; max-width: 150px; }
+  .wk { display: flex; gap: 4px; align-items: center; font-size: calc(12px * var(--fs, 1)); color: var(--muted); }
+  .x { border: 0; background: none; color: var(--faint); font-size: calc(18px * var(--fs, 1)); padding: 0 4px; }
+  .ord { display: flex; align-items: center; gap: 8px; padding: 8px 2px; border-top: 1px solid var(--line); }
+  .ord:first-of-type { border-top: 0; }
+  .ord b { flex: 1; font-size: calc(14px * var(--fs, 1)); } .ord.off b { color: var(--faint); text-decoration: line-through; }
+  .ord button { width: 34px; height: 32px; border-radius: 9px; border: 1px solid var(--line); background: var(--card2); color: var(--ink); font-size: calc(14px * var(--fs, 1)); }
+  .ord button.eye { width: auto; padding: 0 9px; font-size: calc(12px * var(--fs, 1)); }
+  .seg2 { display: flex; gap: 4px; flex-wrap: wrap; }
+  .seg2 button { font: inherit; font-size: calc(13px * var(--fs, 1)); font-weight: 700; padding: 8px 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--card2); color: var(--muted); }
+  .seg2 button.on { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+  .sw { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .sw button { width: 34px; height: 34px; border-radius: 50%; border: 3px solid transparent; }
+  .sw button.on { border-color: var(--ink); }
+  .sw input[type=color] { width: 40px; height: 34px; border: 0; background: none; padding: 0; }
+  .us { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; padding: 8px 0; border-top: 1px solid var(--line); }
+  .us:first-of-type { border-top: 0; }
+  .us input, .us select, .ff input { font: inherit; color: var(--ink); background: var(--card2); border: 1px solid var(--line); border-radius: 9px; padding: 8px; min-width: 0; }
+  .us .un { flex: 1 1 110px; } .us .up { width: 110px; }
+  .chk { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chk label { display: flex; gap: 6px; align-items: center; background: var(--card2); border: 1px solid var(--line); border-radius: 10px; padding: 7px 10px; font-size: calc(13px * var(--fs, 1)); }
+  .chk input { width: auto; }
+  .ff { display: grid; gap: 8px; } .ff label { display: grid; gap: 4px; font-size: calc(12.5px * var(--fs, 1)); color: var(--muted); }
+  .savebar { position: sticky; bottom: 0; z-index: 30; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 10px; margin-top: 8px; box-shadow: 0 -6px 20px rgba(0,0,0,.18); }
+  .savebar .dirty { flex: 1; font-size: calc(12.5px * var(--fs, 1)); color: var(--amber); font-weight: 700; }
+  .savebar input { font: inherit; width: 110px; color: var(--ink); background: var(--card2); border: 1px solid var(--line); border-radius: 9px; padding: 8px; letter-spacing: 3px; text-align: center; }
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="icon-btn" href="index.html" aria-label="חזרה" id="back"></a>
+  <div class="t"><h1>הגדרות</h1><div class="sub" id="sub">נתונים, עיצוב, גישה</div></div>
+</header>
+<main class="wrap">
+  <div class="tabs" id="tabs"><button data-t="data" class="on">🌿 נתונים</button><button data-t="look">🎨 עיצוב וסדר</button><button data-t="access">🔐 גישה</button><button data-t="dev">📱 מכשיר</button></div>
+
+  <section id="t-data">
+    <div class="sc"><h3>שלבי האצווה</h3><p>היעדים של כל שלב (טווח מינימום–מקסימום) ותוכנית הדישון שלו. בכל שלב ספירת הימים מתחילה מ-1 לפי תאריך ההתחלה שלו בדף האצווה.</p><div id="stages"></div></div>
+    <div class="sc"><h3>תתי-השלבים של ההפרחה</h3><p>לפי שבוע הפריחה. השבוע האחרון ממשיך עד הייבוש.</p><div id="subs"></div><div class="links" style="margin-top:8px"><button class="btn" id="addSub">➕ תת-שלב</button></div></div>
+    <div class="sc"><h3>חישוב EC במחשבון הדישון</h3><p>EC = סך כל היסודות (ppm) ÷ מחלק + EC של המים.</p>
+      <div class="rng"><label><span>מחלק</span><input type="number" step="1" min="100" id="ecDiv"></label><label><span>EC המים</span><input type="number" step="0.05" min="0" id="ecWater"></label></div></div>
+    <div class="links"><button class="btn" id="resetRecipe">↺ חזרה לערכי ברירת המחדל</button></div>
+  </section>
+
+  <section id="t-look" hidden>
+    <div class="sc"><h3>ערכת נושא</h3><div class="seg2" id="theme"></div></div>
+    <div class="sc"><h3>צבע ראשי</h3><div class="sw" id="accent"></div></div>
+    <div class="sc"><h3>גודל טקסט</h3><div class="seg2" id="size"></div></div>
+    <div class="sc"><h3>סדר האזורים</h3><p>בקרוסלה בדף הבית ובסרגל הצד. 👁 = מוצג.</p><div id="o-areas"></div></div>
+    <div class="sc"><h3>סדר הכרטיסים בדף הבית</h3><div id="o-home"></div></div>
+    <div class="sc"><h3>סדר הכרטיסים בדף האצווה</h3><div id="o-batch"></div></div>
+  </section>
+
+  <section id="t-access" hidden>
+    <div class="sc"><h3>משתמשים</h3><p>כל עוד אין משתמשים – כל מי שפותח את האפליקציה הוא מנהל. אחרי שמוסיפים משתמש, כל מכשיר צריך להיכנס פעם אחת עם שם וקוד. קוד ריק = הקוד הקודם נשאר.</p>
+      <div id="users"></div><div class="links" style="margin-top:8px"><button class="btn" id="addUser">➕ משתמש</button></div></div>
+    <div class="sc"><h3>מה עובד רואה</h3><p>האזורים שעובד יכול לפתוח (מנהל רואה הכול; הגדרות – רק מנהל).</p><div class="chk" id="wpages"></div></div>
+    <div class="sc"><h3>המכשיר הזה</h3><p id="me"></p><div class="links"><button class="btn" id="out" hidden>יציאה / החלפת משתמש</button></div>
+      <p class="muted small" style="margin-top:10px">הקוד מגן על ההגדרות ועל מה שעובדים רואים באפליקציה. הוא לא מצפין את הנתונים עצמם.</p></div>
+  </section>
+
+  <section id="t-dev" hidden>
+    <div class="sc"><h3>קישורים לאפליקציות</h3><p>נשמרים רק במכשיר הזה.</p>
+      <div class="ff"><label>דף ניהול ריבוי (אדמין)<input id="uAdmin" dir="ltr"></label><label>אפליקציית העובד (סבב שקילה)<input id="uWorker" dir="ltr"></label><label>CannaFlow (ניהול)<input id="uMgmt" dir="ltr"></label></div>
+      <div class="links" style="margin-top:8px"><button class="btn" id="saveLinks">שמור קישורים</button></div></div>
+  </section>
+
+  <div class="savebar" id="bar"><span class="dirty" id="dirty"></span><input id="pin" type="password" inputmode="numeric" placeholder="קוד מנהל" autocomplete="off" hidden><button class="btn primary" id="save">💾 שמור הגדרות</button></div>
+  <div class="msg" id="msg"></div>
+</main>
+<script src="app.js"></script>
+<script>
+$('back').innerHTML = ICON.back;
+const say = (t, bad) => { $('msg').textContent = t || ''; $('msg').className = 'msg' + (bad ? ' err' : ''); };
+const clone = (o) => JSON.parse(JSON.stringify(o));
+// the working copy of everything on this page
+const D = {
+  stages: clone(STAGES), subs: clone(RECIPE),
+  fert: Object.assign({ ecDiv: 500, ecWater: 0.4 }, SET.fert || {}),
+  look: Object.assign({ theme: 'auto', accent: '', size: 'normal' }, SET.look || {}),
+  layout: clone(SET.layout || {}),
+  users: clone(SET.users || []), workerPages: clone(SET.workerPages || ['mgmt', 'prop', 'batch']),
+};
+let dirty = false, PIN = '';
+const mark = () => { dirty = true; $('dirty').textContent = 'יש שינויים שלא נשמרו'; };
+let PROGS = (store.get('fert.data') || {}).programs || (store.get('fertsrv') || {}).programs || [];
+api('action=fert').then((j) => { if (j.programs) { PROGS = j.programs; renderData(); } }).catch(() => {});
+
+/* ---------- tabs ---------- */
+function showTab(t) { ['data', 'look', 'access', 'dev'].forEach((k) => $('t-' + k).hidden = k !== t); $('tabs').querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.t === t)); $('bar').hidden = t === 'dev'; store.set('set.tab', t); }
+$('tabs').onclick = (e) => { const b = e.target.closest('button'); if (b) showTab(b.dataset.t); };
+
+/* ---------- data: stages + sub-phases ---------- */
+const RANGES = [['vpd', 'VPD', 0.05], ['temp', 'טמפ׳', 0.5], ['rh', 'לחות %', 1], ['db', 'ייבוש %', 1]];
+function rangesHtml(o, path) {
+  return '<div class="rng">' + RANGES.map(([k, n, st]) => '<label><span>' + n + '</span><input type="number" step="' + st + '" data-p="' + path + '" data-k="' + k + '" data-i="0" value="' + ((o[k] || [])[0] ?? '') + '" aria-label="' + n + ' מינימום">–<input type="number" step="' + st + '" data-p="' + path + '" data-k="' + k + '" data-i="1" value="' + ((o[k] || [])[1] ?? '') + '" aria-label="' + n + ' מקסימום"></label>').join('') +
+    '<label><span>דישון</span><select data-p="' + path + '" data-k="fert"><option value="">ללא</option>' + PROGS.map((p) => '<option value="' + esc(p.id) + '"' + (p.id === o.fert ? ' selected' : '') + '>' + esc(p.name) + '</option>').join('') + (o.fert && !PROGS.some((p) => p.id === o.fert) ? '<option value="' + esc(o.fert) + '" selected>' + esc(o.fert) + '</option>' : '') + '</select></label></div>';
+}
+function renderData() {
+  if ($('t-data').contains(document.activeElement) && document.activeElement.tagName === 'INPUT' && document.activeElement.type !== 'number') return;
+  $('stages').innerHTML = D.stages.map((s, i) => '<div class="st"><div class="hd"><input class="nm" data-p="stages.' + i + '" data-k="name" value="' + esc(s.name) + '" aria-label="שם השלב"><input class="en" data-p="stages.' + i + '" data-k="en" value="' + esc(s.en) + '" aria-label="שם באנגלית"></div>' +
+    (s.id === 'flower' ? '<p class="muted small" style="margin:0">היעדים לפי תתי-השלבים למטה</p>' : rangesHtml(s, 'stages.' + i)) + '</div>').join('');
+  $('subs').innerHTML = D.subs.map((s, i) => '<div class="st"><div class="hd"><input class="nm" data-p="subs.' + i + '" data-k="name" value="' + esc(s.name) + '" aria-label="שם תת-השלב"><input class="en" data-p="subs.' + i + '" data-k="en" value="' + esc(s.en) + '" aria-label="שם באנגלית">' +
+    '<span class="wk">שבוע<input type="number" step="1" min="1" data-p="subs.' + i + '" data-k="from" value="' + s.from + '" aria-label="משבוע">–<input type="number" step="1" min="1" data-p="subs.' + i + '" data-k="to" value="' + (s.to >= 99 ? '' : s.to) + '" placeholder="∞" aria-label="עד שבוע"></span>' +
+    (D.subs.length > 1 ? '<button class="x" data-del="' + i + '" aria-label="מחק">✕</button>' : '') + '</div>' + rangesHtml(s, 'subs.' + i) + '</div>').join('');
+  $('ecDiv').value = D.fert.ecDiv; $('ecWater').value = D.fert.ecWater;
+}
+const target = (path) => { const [k, i] = path.split('.'); return D[k][+i]; };
+$('t-data').addEventListener('input', (e) => {
+  const el = e.target, p = el.dataset.p; if (!p) { if (el.id === 'ecDiv' || el.id === 'ecWater') { D.fert[el.id] = el.value === '' ? null : Number(el.value); mark(); } return; }
+  const o = target(p), k = el.dataset.k;
+  if (k === 'name' || k === 'en' || k === 'fert') o[k] = el.value;
+  else if (k === 'from') o.from = Math.max(1, Number(el.value) || 1);
+  else if (k === 'to') o.to = el.value === '' ? 99 : Math.max(o.from || 1, Number(el.value) || 1);
+  else { o[k] = o[k] || [null, null]; o[k][+el.dataset.i] = el.value === '' ? null : Number(el.value); }
+  mark();
+});
+$('t-data').addEventListener('change', (e) => { if (e.target.tagName === 'SELECT') { target(e.target.dataset.p).fert = e.target.value; mark(); } });
+$('subs').addEventListener('click', (e) => { const b = e.target.closest('[data-del]'); if (!b) return; D.subs.splice(+b.dataset.del, 1); mark(); renderData(); });
+$('addSub').onclick = () => { const last = D.subs[D.subs.length - 1] || { to: 0 }; const from = Math.min(last.to >= 99 ? (last.from || 1) + 1 : last.to + 1, 30); D.subs.push(Object.assign(clone(last), { id: 's' + Date.now().toString(36), name: 'תת-שלב חדש', en: 'New', from, to: 99, fert: '' })); if (last.to >= 99 && D.subs.length > 1) D.subs[D.subs.length - 2].to = from - 1; mark(); renderData(); };
+$('resetRecipe').onclick = () => { D.stages = clone(RECIPE_DEFAULT.stages); D.subs = clone(RECIPE_DEFAULT.subs); D.fert = { ecDiv: 500, ecWater: 0.4 }; mark(); renderData(); say('הוחזרו ערכי ברירת המחדל – לחץ שמור כדי שיישארו'); };
+
+/* ---------- look + order ---------- */
+const ACCENTS = ['#3b8cff', '#2bb673', '#22c3e6', '#9d8cff', '#f5b942', '#ff7a59', '#e5537a'];
+function renderLook() {
+  const L = D.look;
+  $('theme').innerHTML = [['auto', 'אוטומטי'], ['dark', 'כהה'], ['light', 'בהיר']].map(([k, n]) => '<button data-v="' + k + '" class="' + (L.theme === k ? 'on' : '') + '">' + n + '</button>').join('');
+  $('size').innerHTML = [['normal', 'רגיל'], ['large', 'גדול'], ['xl', 'גדול מאוד']].map(([k, n]) => '<button data-v="' + k + '" class="' + (L.size === k ? 'on' : '') + '">' + n + '</button>').join('');
+  $('accent').innerHTML = ACCENTS.map((c) => '<button data-v="' + c + '" style="background:' + c + '" class="' + ((L.accent || '#3b8cff') === c ? 'on' : '') + '" aria-label="' + c + '"></button>').join('') + '<input type="color" id="accC" value="' + (L.accent || '#3b8cff') + '" aria-label="צבע אחר">';
+  const ord = (key, items) => {
+    const cur = D.layout[key] || [], pos = (id) => { const i = cur.findIndex((x) => x.id === id); return i < 0 ? 99 + items.findIndex((x) => x[0] === id) : i; };
+    const L2 = items.slice().sort((a, b) => pos(a[0]) - pos(b[0])).map(([id, n]) => ({ id, n, hide: !!(cur.find((x) => x.id === id) || {}).hide }));
+    D.layout[key] = L2.map((x) => ({ id: x.id, hide: x.hide }));
+    $('o-' + key).innerHTML = L2.map((x, i) => '<div class="ord' + (x.hide ? ' off' : '') + '" data-key="' + key + '" data-i="' + i + '"><b>' + esc(x.n) + '</b><button data-m="-1" aria-label="למעלה"' + (i ? '' : ' disabled') + '>▲</button><button data-m="1" aria-label="למטה"' + (i < L2.length - 1 ? '' : ' disabled') + '>▼</button><button class="eye" data-h="1">' + (x.hide ? 'מוסתר' : '👁 מוצג') + '</button></div>').join('');
+  };
+  ord('areas', AREAS.filter((a) => a.id !== 'home' && a.id !== 'set').map((a) => [a.id, a.icon + ' ' + a.name]));
+  ord('home', LAYOUTS.home); ord('batch', LAYOUTS.batch);
+}
+const previewLook = () => { const keep = SET.look; SET.look = D.look; applyLook(); SET.look = keep; };
+$('theme').onclick = (e) => { const b = e.target.closest('button'); if (!b) return; D.look.theme = b.dataset.v; mark(); renderLook(); previewLook(); };
+$('size').onclick = (e) => { const b = e.target.closest('button'); if (!b) return; D.look.size = b.dataset.v; mark(); renderLook(); previewLook(); };
+$('accent').onclick = (e) => { const b = e.target.closest('button'); if (!b) return; D.look.accent = b.dataset.v === '#3b8cff' ? '' : b.dataset.v; mark(); renderLook(); previewLook(); };
+$('accent').oninput = (e) => { if (e.target.id === 'accC') { D.look.accent = e.target.value; mark(); previewLook(); } };
+$('t-look').addEventListener('click', (e) => {
+  const b = e.target.closest('.ord button'); if (!b) return; const row = b.closest('.ord'), key = row.dataset.key, i = +row.dataset.i, L = D.layout[key];
+  if (b.dataset.h) L[i].hide = !L[i].hide; else { const j = i + Number(b.dataset.m); [L[i], L[j]] = [L[j], L[i]]; }
+  mark(); renderLook();
+});
+
+/* ---------- access ---------- */
+function renderAccess() {
+  $('users').innerHTML = D.users.length ? D.users.map((u, i) => '<div class="us" data-i="' + i + '"><input class="un" data-k="name" value="' + esc(u.name) + '" placeholder="שם"><select data-k="role"><option value="manager"' + (u.role === 'manager' ? ' selected' : '') + '>מנהל</option><option value="worker"' + (u.role !== 'manager' ? ' selected' : '') + '>עובד</option></select><input class="up" data-k="pin" type="password" inputmode="numeric" autocomplete="new-password" maxlength="8" placeholder="' + (u.id && !u.isNew ? 'קוד (ללא שינוי)' : 'קוד חדש') + '" value="' + esc(u.pin || '') + '"><button class="x" data-del="' + i + '" aria-label="מחק">✕</button></div>').join('') : '<p class="muted small">אין משתמשים – כולם מנהלים.</p>';
+  $('wpages').innerHTML = AREAS.filter((a) => a.id !== 'home' && a.id !== 'set').map((a) => '<label><input type="checkbox" value="' + a.id + '"' + (D.workerPages.indexOf(a.id) >= 0 ? ' checked' : '') + '>' + a.icon + ' ' + a.name + '</label>').join('');
+  $('me').textContent = !hasUsers() ? 'אין משתמשים מוגדרים – המכשיר פתוח לכולם.' : USER ? 'מחובר: ' + USER.name + ' (' + (USER.role === 'manager' ? 'מנהל' : 'עובד') + ')' : 'לא מחובר';
+  $('out').hidden = !USER;
+}
+$('users').addEventListener('input', (e) => { const r = e.target.closest('.us'); if (!r) return; D.users[+r.dataset.i][e.target.dataset.k] = e.target.value; mark(); });
+$('users').addEventListener('click', (e) => { const b = e.target.closest('[data-del]'); if (!b) return; D.users.splice(+b.dataset.del, 1); mark(); renderAccess(); });
+$('addUser').onclick = () => { D.users.push({ id: 'u' + Date.now().toString(36), name: '', role: D.users.some((u) => u.role === 'manager') ? 'worker' : 'manager', pin: '', isNew: true }); mark(); renderAccess(); };
+$('wpages').onchange = () => { D.workerPages = [...$('wpages').querySelectorAll('input:checked')].map((i) => i.value); mark(); };
+$('out').onclick = signOut;
+
+/* ---------- this device ---------- */
+$('uAdmin').value = store.get('adminUrl') || ''; $('uWorker').value = store.get('workerUrl') || ''; $('uMgmt').value = store.get('mgmtUrl') || '';
+$('saveLinks').onclick = () => { store.set('adminUrl', $('uAdmin').value.trim()); store.set('workerUrl', $('uWorker').value.trim()); store.set('mgmtUrl', $('uMgmt').value.trim()); say('הקישורים נשמרו במכשיר הזה'); };
+
+/* ---------- save ---------- */
+$('pin').hidden = !hasUsers();
+$('save').onclick = async () => {
+  // checks first
+  for (const u of D.users) { if (!u.name.trim()) return say('לכל משתמש צריך שם', true); if ((u.isNew || !SET.users || !SET.users.some((x) => x.id === u.id)) && !/^\d{4,8}$/.test(u.pin || '')) return say('קוד של ' + (u.name || 'משתמש חדש') + ': 4–8 ספרות', true); if (u.pin && !/^\d{4,8}$/.test(u.pin)) return say('קוד: 4–8 ספרות', true); }
+  if (D.users.length && !D.users.some((u) => u.role === 'manager')) return say('צריך לפחות מנהל אחד', true);
+  const subs = D.subs.slice().sort((a, b) => a.from - b.from); for (let i = 1; i < subs.length; i++) if (subs[i].from <= subs[i - 1].to && subs[i - 1].to < 99) return say('השבועות של "' + subs[i - 1].name + '" ו-"' + subs[i].name + '" חופפים', true);
+  subs[subs.length - 1].to = 99;
+  for (const s of D.stages.concat(subs)) for (const [k] of RANGES) if (s[k] && s[k][0] != null && s[k][1] != null && s[k][0] > s[k][1]) return say('ב"' + s.name + '" המינימום גדול מהמקסימום', true);
+  const pin = $('pin').value || PIN;
+  if (hasUsers() && !pin) { $('pin').focus(); return say('הקלד קוד מנהל כדי לשמור', true); }
+  $('save').disabled = true; say('שומר…');
+  try {
+    const firstMgr = !hasUsers() && D.users.find((u) => u.role === 'manager');
+    const r = await apiPost({ action: 'saveappsettings', pin, recipe: { stages: D.stages, subs }, look: D.look, layout: D.layout, fert: D.fert, users: D.users.map((u) => ({ id: u.id, name: u.name.trim(), role: u.role, pin: u.pin || '' })), workerPages: D.workerPages });
+    SET = r; store.set('appset', r); PIN = pin; $('pin').value = '';
+    if (firstMgr) { USER = { id: firstMgr.id, name: firstMgr.name.trim(), role: 'manager' }; store.set('user', USER); }   // the one who created the first manager stays signed in here
+    D.users = clone(r.users || []); dirty = false; $('dirty').textContent = ''; $('pin').hidden = !hasUsers();
+    applyLook(); renderAccess(); say('ההגדרות נשמרו ✓ – הן חלות בכל המכשירים (בטלפונים אחרים אחרי רענון)');
+  } catch (e) { say('לא נשמר – ' + e.message, true); }
+  $('save').disabled = false;
+};
+window.addEventListener('beforeunload', (e) => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
+
+renderData(); renderLook(); renderAccess(); showTab(store.get('set.tab') || 'data');
+</script>
+</body>
+</html>

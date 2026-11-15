@@ -16,38 +16,32 @@
 <header class="top">
   <img class="logo" src="icon-192.png" alt="">
   <div class="t"><h1>BCI</h1><div class="sub" id="sub">טוען…</div></div>
-  <button class="icon-btn" id="settings" aria-label="קישורים"></button>
+  <button class="icon-btn" id="settings" aria-label="הגדרות"></button>
   <button class="icon-btn" id="refresh" aria-label="רענון"></button>
 </header>
 
-<main class="wrap">
-  <div id="alerts"></div>
+<main class="wrap" data-lay="home">
+  <div id="alerts" data-sec="alerts"></div>
 
   <!-- grow room: the metrics now with their trend -->
-  <a class="room" href="batch.html">
+  <a class="room" href="batch.html" data-sec="room">
     <div class="rt"><span class="dot" id="gDot"></span><b>חדר פריחה</b><span id="gSub"></span><span class="fl"></span><span class="pill" id="gPill" hidden></span></div>
     <div class="kp" id="gTiles"></div>
   </a>
   <!-- one chart of everything -->
-  <div class="room">
+  <div class="room" data-sec="chart">
     <div class="rt"><b id="cTitle">48 שעות אחרונות</b><span class="fl"></span><span class="seg rng" id="rng"></span></div>
     <div id="lg"></div>
     <div class="chart" id="big"></div>
   </div>
   <!-- propagation -->
-  <a class="room" href="prop.html">
+  <a class="room" href="prop.html" data-sec="prop">
     <div class="rt"><span class="dot" id="pDot"></span><b>ריבוי</b><span id="pSub"></span></div>
     <div class="kp" id="pTiles"></div>
   </a>
 
-  <section class="grp only-m"><h2>אזורים</h2>
-    <nav class="caro" id="caro">
-      <a id="cMgmt" href="mgmt.html" style="--c:#f5b942"><span class="ic">🗂️</span><b>ניהול</b><small id="cMgmtS">משימות · CannaFlow</small></a>
-      <a href="prop.html" style="--c:#3b8cff"><span class="ic">🌱</span><b>ריבוי</b><small id="cPropS">אמהות ומגשים</small></a>
-      <a href="batch.html" style="--c:#3ddc97"><span class="ic">🌿</span><b>גידול</b><small id="cGrow">האצווה בפריחה</small></a>
-      <a href="mgmt.html#inv" style="--c:#9d8cff"><span class="ic">📦</span><b>מלאי</b><small id="cInvS">מסונכרן עם CannaFlow</small></a>
-      <a href="fert.html" style="--c:#22c3e6"><span class="ic">💧</span><b>דישון</b><small>מחשבון ותוכניות</small></a>
-    </nav>
+  <section class="grp only-m" data-sec="caro"><h2>אזורים</h2>
+    <nav class="caro" id="caro"></nav>
   </section>
   <div class="msg" id="msg"></div>
 </main>
@@ -67,6 +61,9 @@
 <script src="app.js"></script>
 <script>
 $('refresh').innerHTML = ICON.refresh; $('settings').innerHTML = ICON.gear;
+/* the carousel: the areas in the order of the settings (the subtitles are filled below) */
+$('caro').innerHTML = areasList(false).map((a) => '<a href="' + a.href + '" style="--c:' + a.c + '"><span class="ic">' + a.icon + '</span><b>' + a.name + '</b><small id="c-' + a.id + '">' + a.sub + '</small></a>').join('');
+const setSub = (id, t) => { const el = $('c-' + id); if (el) el.textContent = t; };
 const S = { grow: null, hub: null, clim: null, photoAt: null };       // the last answers – the alerts are built from all of them together
 const MIN = 60000, old = (t, m) => t == null || Date.now() - t > m * MIN;
 const getRange = rangeSeg($('rng'), [[24, '24 שע׳'], [48, 'יומיים'], [168, '7 ימים']], () => loadAll());
@@ -76,7 +73,7 @@ function renderGrow(j) {
   const c = j.cycle || {}, P = plantNow(j.points || [], c), a = P.airNow, po = phaseOf(c), ph = po && po.ph, h = getRange(), t1 = Date.now(), t0 = t1 - h * 3600000;
   S.P = P;
   const fresh = a && !old(a.t, 30), air = P.air.filter((p) => p.t >= t0), wp = P.A.pts.filter((p) => p.t >= t0);
-  $('gSub').textContent = [c.name, po ? 'יום ' + po.day : ''].filter(Boolean).join(' · ');
+  $('gSub').textContent = [c.name, po ? po.stage.name + ' · יום ' + po.day : ''].filter(Boolean).join(' · ');
   $('gPill').hidden = !ph; if (ph) $('gPill').textContent = ph.en;
   const dbT = ph ? ph.db : [P.lim * .8, P.lim], dbs = P.db == null ? 'off' : P.db > dbT[1] ? 'bad' : '';
   const st = [fresh && ph ? band(a.vpd, ph.vpd, .15) : fresh ? ({ bad: 'bad', warn: 'warn' }[vpdState(a.vpd)] || '') : 'off', fresh && ph ? band(a.temp, ph.temp, 1.5) : fresh ? '' : 'off', fresh && ph ? band(a.rh, ph.rh, 5) : fresh ? '' : 'off', dbs];
@@ -91,7 +88,7 @@ function renderGrow(j) {
   $('cTitle').textContent = h === 24 ? '24 שעות אחרונות' : h === 48 ? '48 שעות אחרונות' : '7 ימים אחרונים';
   const lgHtml = legend(fresh ? a : null, P.w); $('lg').innerHTML = lgHtml;
   multiChart($('big'), { lg: $('lg'), lgHtml, t0, t1, air: P.air, wpts: P.A.pts, ev: P.A.ev, band: ph ? ph.vpd : [0.8, 1.5], height: window.innerWidth >= 900 ? 280 : 190 });
-  $('cGrow').textContent = [c.name || 'האצווה בפריחה', po ? 'יום ' + po.day : ''].filter(Boolean).join(' · ');
+  setSub('batch', [c.name || 'האצווה בחדר', po ? po.stage.name + ' · יום ' + po.day : ''].filter(Boolean).join(' · '));
   alerts();
 }
 function renderProp(j) {
@@ -109,7 +106,7 @@ function renderProp(j) {
     ktile('נשקלו היום', COL.irr, r ? r.weighed : '—', r ? '/ ' + r.active : '', '', null, '', r && r.active ? (r.weighed >= r.active ? 'הסבב הושלם' : 'נשארו ' + (r.active - r.weighed)) : ''),
     ktile('צריכים השקיה', COL.w, W, '', '', null, W ? 'warn' : '', 'מגשים מעל הסף'),
   ].join('');
-  $('cPropS').textContent = trays + ' מגשים' + (W ? ' · ' + W + ' להשקות' : '');
+  setSub('prop', trays + ' מגשים' + (W ? ' · ' + W + ' להשקות' : ''));
   links(); alerts();
 }
 async function renderPhoto(gp) {
@@ -146,14 +143,14 @@ function links() {
   const c = store.get('cf.cache'), d = c && c.d;
   if (d) {
     const today = dayKey(Date.now()), late = (d.tasks || []).filter((t) => !t.done && t.date && t.date < today).length, now = (d.tasks || []).filter((t) => !t.done && t.date === today).length;
-    $('cMgmtS').textContent = (now ? now + ' משימות היום' : 'אין משימות היום') + (late ? ' · ' + late + ' באיחור' : '');
+    setSub('mgmt', (now ? now + ' משימות היום' : 'אין משימות היום') + (late ? ' · ' + late + ' באיחור' : ''));
     const inv = d.invState || {}, low = Object.keys(inv).filter((k) => inv[k] && inv[k].qty != null && inv[k].qty === 0).length;
-    if (low) $('cInvS').textContent = low + ' פריטים נגמרו';
+    if (low) setSub('inv', low + ' פריטים נגמרו');
   }
 }
 function openDlg() { $('uAdmin').value = store.get('adminUrl') || ''; $('uWorker').value = store.get('workerUrl') || ''; $('uMgmt').value = store.get('mgmtUrl') || ''; $('dlg').showModal(); }
 $('dlg').addEventListener('close', () => { if ($('dlg').returnValue === 'save') { store.set('adminUrl', $('uAdmin').value.trim()); store.set('workerUrl', $('uWorker').value.trim()); store.set('mgmtUrl', $('uMgmt').value.trim()); links(); alerts(); } });
-$('settings').onclick = openDlg;
+$('settings').onclick = () => { location.href = 'settings.html'; }; if (!isManager()) $('settings').hidden = true;
 
 async function loadAll() {
   $('refresh').classList.add('spin'); $('msg').textContent = ''; $('msg').className = 'msg';

@@ -16,49 +16,49 @@
   .icon-btn.fert svg { stroke: var(--fert); }
   /* hero: ליטר/קוב לכל סטוק */
   .hero { background: linear-gradient(160deg, color-mix(in srgb, var(--fert) 14%, transparent), var(--card)); border: 1px solid color-mix(in srgb, var(--fert) 35%, var(--line)); border-radius: var(--radius); padding: 14px; }
-  .hero .ht { font-size: 13px; font-weight: 800; color: var(--fert); margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
-  .hero .ht .r { margin-inline-start: auto; font-weight: 500; font-size: 12px; color: var(--muted); }
+  .hero .ht { font-size: calc(13px * var(--fs, 1)); font-weight: 800; color: var(--fert); margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+  .hero .ht .r { margin-inline-start: auto; font-weight: 500; font-size: calc(12px * var(--fs, 1)); color: var(--muted); }
   .srow { display: flex; align-items: center; gap: 10px; padding: 9px 2px; border-bottom: 1px solid var(--line); }
   .srow:last-child { border-bottom: 0; }
   .srow .tag, .stock-ed .sh .tag { padding: 0; }
-  .srow .tag { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; font-weight: 800; font-size: 13px; color: #fff; flex: none; }
-  .srow .nm { flex: 1; min-width: 0; font-weight: 700; font-size: 14px; }
-  .srow .nm small { display: block; color: var(--muted); font-weight: 500; font-size: 11.5px; }
+  .srow .tag { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; font-weight: 800; font-size: calc(13px * var(--fs, 1)); color: #fff; flex: none; }
+  .srow .nm { flex: 1; min-width: 0; font-weight: 700; font-size: calc(14px * var(--fs, 1)); }
+  .srow .nm small { display: block; color: var(--muted); font-weight: 500; font-size: calc(11.5px * var(--fs, 1)); }
   .srow .inp { display: flex; align-items: center; gap: 6px; }
-  .srow input { width: 72px; font: inherit; font-size: 15px; font-weight: 700; text-align: center; color: var(--ink); background: var(--card2); border: 1px solid var(--line); border-radius: 10px; padding: 7px 4px; direction: ltr; }
-  .srow .u { color: var(--muted); font-size: 11.5px; }
-  .srow .val { font-size: 19px; font-weight: 900; direction: ltr; min-width: 58px; text-align: end; }
-  .srow .val small { font-size: 11px; color: var(--muted); font-weight: 600; }
+  .srow input { width: 72px; font: inherit; font-size: calc(15px * var(--fs, 1)); font-weight: 700; text-align: center; color: var(--ink); background: var(--card2); border: 1px solid var(--line); border-radius: 10px; padding: 7px 4px; direction: ltr; }
+  .srow .u { color: var(--muted); font-size: calc(11.5px * var(--fs, 1)); }
+  .srow .val { font-size: calc(19px * var(--fs, 1)); font-weight: 900; direction: ltr; min-width: 58px; text-align: end; }
+  .srow .val small { font-size: calc(11px * var(--fs, 1)); color: var(--muted); font-weight: 600; }
   /* elements vs target */
   .elem { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; }
   .el { background: var(--card2); border: 1px solid var(--line); border-radius: 12px; padding: 9px 10px; }
-  .el .n { font-size: 12px; font-weight: 700; color: var(--muted); display: flex; justify-content: space-between; align-items: baseline; }
-  .el .n b { color: var(--ink); font-weight: 800; direction: ltr; font-size: 15px; }
-  .el .n .tg { font-size: 10.5px; color: var(--faint); direction: ltr; }
+  .el .n { font-size: calc(12px * var(--fs, 1)); font-weight: 700; color: var(--muted); display: flex; justify-content: space-between; align-items: baseline; }
+  .el .n b { color: var(--ink); font-weight: 800; direction: ltr; font-size: calc(15px * var(--fs, 1)); }
+  .el .n .tg { font-size: calc(10.5px * var(--fs, 1)); color: var(--faint); direction: ltr; }
   .el .bar { height: 5px; }
-  .el .tgt { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); font-weight: 600; margin-top: 6px; }
-  .el .tgt input { flex: 1; min-width: 0; width: 100%; font: inherit; font-size: 14px; font-weight: 700; text-align: center; color: var(--ink); background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 5px 2px; direction: ltr; }
+  .el .tgt { display: flex; align-items: center; gap: 6px; font-size: calc(11px * var(--fs, 1)); color: var(--muted); font-weight: 600; margin-top: 6px; }
+  .el .tgt input { flex: 1; min-width: 0; width: 100%; font: inherit; font-size: calc(14px * var(--fs, 1)); font-weight: 700; text-align: center; color: var(--ink); background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 5px 2px; direction: ltr; }
   .el .bar i { background: var(--fert); }
   .el.over .bar i { background: var(--amber); }
   .el.low .bar i { background: var(--blue); }
   .tog { display: inline-flex; background: var(--card2); border: 1px solid var(--line); border-radius: 11px; padding: 3px; }
-  .tog b { font-size: 13px; font-weight: 700; color: var(--muted); padding: 6px 14px; border-radius: 8px; cursor: pointer; }
+  .tog b { font-size: calc(13px * var(--fs, 1)); font-weight: 700; color: var(--muted); padding: 6px 14px; border-radius: 8px; cursor: pointer; }
   .tog b.on { background: var(--fert); color: #fff; }
   .btn.fert { background: var(--fert-d); border-color: var(--fert-d); color: #fff; }
   .seg button.on { color: var(--fert); }
-  .psel { display: flex; align-items: center; gap: 8px; background: var(--card2); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; flex: 1; }
-  .psel select { flex: 1; font: inherit; font-size: 15px; font-weight: 700; color: var(--ink); background: none; border: 0; }
+  .psel { display: flex; align-items: center; gap: 8px; min-width: 0; background: var(--card2); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; flex: 1; }
+  .psel select { flex: 1; min-width: 0; width: 100%; text-overflow: ellipsis; font: inherit; font-size: calc(15px * var(--fs, 1)); font-weight: 700; color: var(--ink); background: none; border: 0; }
   .stock-ed { background: var(--card2); border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin-bottom: 10px; }
   .stock-ed .sh { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-  .stock-ed .sh .tag { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; font-weight: 800; color: #fff; font-size: 12px; }
-  .stock-ed .sh b { font-size: 15px; }
+  .stock-ed .sh .tag { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; font-weight: 800; color: #fff; font-size: calc(12px * var(--fs, 1)); }
+  .stock-ed .sh b { font-size: calc(15px * var(--fs, 1)); }
   .itrow { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
-  .itrow select { flex: 1; font: inherit; font-size: 13.5px; color: var(--ink); background: var(--card); border: 1px solid var(--line); border-radius: 9px; padding: 7px 8px; min-width: 0; }
-  .itrow input { width: 86px; font: inherit; font-size: 14px; text-align: center; color: var(--ink); background: var(--card); border: 1px solid var(--line); border-radius: 9px; padding: 7px 4px; direction: ltr; }
-  .itrow .del { color: var(--red); font-size: 18px; padding: 0 6px; }
+  .itrow select { flex: 1; font: inherit; font-size: calc(13.5px * var(--fs, 1)); color: var(--ink); background: var(--card); border: 1px solid var(--line); border-radius: 9px; padding: 7px 8px; min-width: 0; }
+  .itrow input { width: 86px; font: inherit; font-size: calc(14px * var(--fs, 1)); text-align: center; color: var(--ink); background: var(--card); border: 1px solid var(--line); border-radius: 9px; padding: 7px 4px; direction: ltr; }
+  .itrow .del { color: var(--red); font-size: calc(18px * var(--fs, 1)); padding: 0 6px; }
   .plist .it { cursor: pointer; }
   .plist .it.on { border-color: var(--fert); background: color-mix(in srgb, var(--fert) 10%, var(--card2)); }
-  .banner { font-size: 12.5px; color: var(--amber); background: color-mix(in srgb, var(--amber) 12%, transparent); border: 1px solid color-mix(in srgb, var(--amber) 30%, var(--line)); border-radius: 12px; padding: 9px 12px; margin-bottom: 12px; }
+  .banner { font-size: calc(12.5px * var(--fs, 1)); color: var(--amber); background: color-mix(in srgb, var(--amber) 12%, transparent); border: 1px solid color-mix(in srgb, var(--amber) 30%, var(--line)); border-radius: 12px; padding: 9px 12px; margin-bottom: 12px; }
 </style>
 </head>
 <body>
