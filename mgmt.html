@@ -47,6 +47,7 @@
   .addf #nName { flex: 1 1 100%; }
   .addf select { flex: 1 1 40%; } .addf input[type=date] { flex: 1 1 55%; min-width: 150px; }
   .lk { font-size: calc(11.5px * var(--fs, 1)); font-weight: 700; color: var(--green); }
+  details.olds { margin-top: 10px; } details.olds summary { cursor: pointer; color: var(--muted); font-weight: 700; font-size: calc(13px * var(--fs, 1)); padding: 6px 4px; }
   .acct { display: flex; gap: 8px; align-items: center; color: var(--muted); font-size: calc(12px * var(--fs, 1)); margin: 14px 4px; flex-wrap: wrap; }
 </style>
 </head>
@@ -88,7 +89,7 @@ $('refresh').innerHTML = ICON.refresh; $('back').innerHTML = ICON.back;
 const say = (t, bad) => { $('msg').textContent = t || ''; $('msg').className = 'msg' + (bad ? ' err' : ''); };
 const DCOL = { prop: '#3b8cff', grow: '#3ddc97', post: '#f5b942', ops: '#9d8cff', purch: '#22c3e6' };
 const PRI = { urgent: '🔴', high: '🟠', normal: '', low: '' };
-let TAB = (location.hash.slice(1) || store.get('mgmt.tab') || 'tasks'), DEPT = store.get('mgmt.dept') || 'all', LINK = null;
+let TAB = (location.hash.slice(1) || store.get('mgmt.tab') || 'tasks'), DEPT = store.get('mgmt.dept') || 'all', LINKS = [];
 const busy = new Set();                                   // tasks being saved right now
 const dd = (s) => s ? s.slice(8, 10) + '.' + s.slice(5, 7) : '';
 
@@ -113,12 +114,13 @@ function renderTasks(d) {
   $('dept').innerHTML = [['all', 'הכול']].concat(Object.entries(CF_DEPTS)).map(([k, v]) => '<button data-d="' + k + '" class="' + (DEPT === k ? 'on' : '') + '">' + v + '</button>').join('');
   $('dept').querySelectorAll('button').forEach((b) => b.onclick = () => { DEPT = b.dataset.d; store.set('mgmt.dept', DEPT); renderTasks(CF.data); });
   const L = all.filter((t) => t.date && (DEPT === 'all' || t.dept === DEPT));
-  const late = L.filter((t) => !t.done && t.date < today), now = L.filter((t) => t.date === today), next = L.filter((t) => !t.done && t.date > today && t.date <= wk);
+  const lateFrom = cfAddDays(today, -14), late = L.filter((t) => !t.done && t.date < today && t.date >= lateFrom), old = L.filter((t) => !t.done && t.date < lateFrom), now = L.filter((t) => t.date === today), next = L.filter((t) => !t.done && t.date > today && t.date <= wk);
   const row = (t) => '<div class="tk' + (t.done ? ' done' : '') + (busy.has(t.id) ? ' busy' : '') + '" style="--c:' + (DCOL[t.dept] || 'var(--accent)') + '"><button class="cb" data-id="' + esc(t.id) + '" aria-label="בוצע">' + (t.done ? '✓' : '') + '</button><b>' + (PRI[t.priority] ? '<span class="pr">' + PRI[t.priority] + '</span> ' : '') + esc(t.name) +
     '<small>' + esc([CF_DEPTS[t.dept], cfRoomName(d, t.room), t.date !== today ? dd(t.date) : '', t.note].filter(Boolean).join(' · ')) + '</small></b></div>';
   const by = (a, b) => (a.date || '').localeCompare(b.date || '') || (a.priority === 'urgent' ? -1 : 0);
   const grp = (title, A, cls) => A.length ? '<div class="gh ' + (cls || '') + '">' + title + '<span>' + A.length + '</span></div>' + A.sort(by).map(row).join('') : '';
-  $('tlist').innerHTML = (grp('⚠️ באיחור', late, 'bad') + grp('📅 היום', now) + grp('🗓️ 7 הימים הקרובים', next)) || '<p class="muted small" style="margin:10px 4px">אין משימות פתוחות לשבוע הקרוב' + (DEPT !== 'all' ? ' ב' + CF_DEPTS[DEPT] : '') + ' 🎉</p>';
+  $('tlist').innerHTML = (grp('⚠️ באיחור (שבועיים אחרונים)', late, 'bad') + grp('📅 היום', now) + grp('🗓️ 7 הימים הקרובים', next) +
+    (old.length ? '<details class="olds"><summary>' + old.length + ' משימות פתוחות ישנות יותר (לפני ' + dd(lateFrom) + ')</summary>' + old.sort(by).map(row).join('') + '</details>' : '')) || '<p class="muted small" style="margin:10px 4px">אין משימות פתוחות לשבוע הקרוב' + (DEPT !== 'all' ? ' ב' + CF_DEPTS[DEPT] : '') + ' 🎉</p>';
   $('tlist').querySelectorAll('.cb').forEach((b) => b.onclick = async () => {
     const id = b.dataset.id, t = (CF.data.tasks || []).find((x) => x.id === id); if (!t || busy.has(id)) return;
     busy.add(id); t.done = !t.done; renderTasks(CF.data);                   // shows at once; the patch below writes it
@@ -142,28 +144,37 @@ $('nName').onkeydown = (e) => { if (e.key === 'Enter') $('nAdd').click(); };
 
 /* ---------- rooms with the batches in them ---------- */
 function renderRooms(d) {
-  const B = cfBatches(d), today = cfToday(), rooms = (d.rooms || []).slice();
+  const hidden = store.get('cf.hidden') || [], ALL = cfBatches(d), B = ALL.filter((b) => !b.past && hidden.indexOf(b.id) < 0), PAST = ALL.filter((b) => b.past || hidden.indexOf(b.id) >= 0), today = cfToday(), rooms = (d.rooms || []).slice();
   const orderD = { grow: 0, prop: 1, post: 2 }; rooms.sort((a, b) => (orderD[a.dept] ?? 9) - (orderD[b.dept] ?? 9));
   const bHtml = (b) => {
     const s = b.plant || b.flower, e = b.harvest, pc = s && e ? Math.max(0, Math.min(100, (Date.parse(today) - Date.parse(s)) / (Date.parse(e) - Date.parse(s)) * 100)) : null;
     const fd = b.flower && b.flower <= today ? Math.floor((Date.parse(today) - Date.parse(b.flower)) / DAY) + 1 : null;
     const nx = b.tasks.find((t) => !t.done && t.date >= today);
-    const linked = LINK && LINK.batch === b.id;
+    const linked = LINKS.indexOf(b.id) >= 0;
     return '<div class="bt"><div class="bn">' + esc(b.name) + (linked ? '<span class="lk">● מחובר לחדר הפריחה ב-BCI</span>' : '') + '</div>' +
       '<div class="bm">' + esc([b.plant ? 'שתילה ' + dd(b.plant) : '', b.flower ? 'הפרחה ' + dd(b.flower) + (fd ? ' (יום ' + fd + ')' : '') : '', b.harvest ? 'קציר ' + dd(b.harvest) : ''].filter(Boolean).join(' · ')) + '</div>' +
       (nx ? '<div class="bm">הבא: ' + esc(nx.name) + ' · ' + dd(nx.date) + '</div>' : '') +
       (pc != null ? '<div class="prog"><i style="width:' + pc.toFixed(0) + '%"></i></div>' : '') +
-      (linked ? '' : '<div class="links" style="margin-top:7px"><button class="btn" data-link="' + esc(b.id) + '">🔗 זו האצווה בחדר הפריחה של BCI</button></div>') + '</div>';
+      '<div class="links" style="margin-top:7px">' + (linked ? '' : '<button class="btn" data-link="' + esc(b.id) + '">🔗 חבר לאצווה בחדר החיישנים</button>') + '<button class="btn" data-hide="' + esc(b.id) + '">הסתר</button></div></div>';
   };
   const used = new Set();
   let h = rooms.map((r) => { const L = B.filter((b) => b.room === r.id); L.forEach((b) => used.add(b.id)); if (!L.length && r.dept !== 'grow') return '';
     return '<div class="rm"><h3>' + esc(r.name) + '<small>' + esc(CF_DEPTS[r.dept] || '') + '</small></h3>' + (L.length ? L.map(bHtml).join('') : '<div class="bm muted small">פנוי – אין אצווה פעילה</div>') + '</div>'; }).join('');
   const rest = B.filter((b) => !used.has(b.id)); if (rest.length) h += '<div class="rm"><h3>אצוות בלי חדר</h3>' + rest.map(bHtml).join('') + '</div>';
+  if (PAST.length) h += '<details class="olds rm"><summary>📦 אצוות ישנות / מוסתרות (' + PAST.length + ')</summary>' + PAST.map((b) => '<div class="bt"><div class="bn">' + esc(b.name) + '<small class="muted">' + esc(b.roomName || '') + '</small></div><div class="bm">' + esc([b.plant ? 'שתילה ' + dd(b.plant) : '', b.harvest ? 'קציר ' + dd(b.harvest) : '', b.open ? b.open + ' משימות פתוחות' : 'הכול בוצע'].filter(Boolean).join(' · ')) + '</div>' +
+    '<div class="links" style="margin-top:6px">' + (hidden.indexOf(b.id) >= 0 ? '<button class="btn" data-unhide="' + esc(b.id) + '">החזר לרשימה</button>' : '') + '<button class="btn" data-delb="' + esc(b.id) + '" style="color:var(--red)">🗑 מחק מהגאנט (' + b.tasks.length + ' משימות)</button></div></div>').join('') + '</details>';
   $('rlist').innerHTML = h || '<p class="muted small">אין חדרים ב-CannaFlow</p>';
+  $('rlist').querySelectorAll('[data-hide]').forEach((b) => b.onclick = () => { const H = store.get('cf.hidden') || []; H.push(b.dataset.hide); store.set('cf.hidden', H); renderRooms(CF.data); });
+  $('rlist').querySelectorAll('[data-unhide]').forEach((b) => b.onclick = () => { store.set('cf.hidden', (store.get('cf.hidden') || []).filter((x) => x !== b.dataset.unhide)); renderRooms(CF.data); });
+  $('rlist').querySelectorAll('[data-delb]').forEach((b) => b.onclick = async () => {
+    const x = ALL.find((y) => y.id === b.dataset.delb); if (!x) return;
+    if (!confirm('למחוק מהגאנט ב-CannaFlow את האצווה "' + x.name + '" – ' + x.tasks.length + ' משימות? (CannaFlow שומר גיבוי יומי, אבל מכאן אי אפשר לבטל)')) return;
+    b.disabled = true; try { await cfDelBatch(x.id); say('האצווה נמחקה מהגאנט'); } catch (e) { say('לא נמחקה – ' + e.message, true); } renderRooms(CF.data);
+  });
   $('rlist').querySelectorAll('[data-link]').forEach((b) => b.onclick = async () => {
     const x = B.find((y) => y.id === b.dataset.link); if (!x) return;
     const link = { batch: x.id, room: x.room, name: x.name };
-    try { await apiPost({ action: 'savebatch', link }); LINK = link; const T = store.get('batchsrv'); if (T) { T.link = link; store.set('batchsrv', T); } say('חדר הפריחה ב-BCI מחובר ל"' + x.name + '" – המשימות והתאריכים יסונכרנו בדף האצווה'); renderRooms(CF.data); }
+    try { const r = await apiPost({ action: 'savebatch', link }); LINKS.push(link.batch); say('חדר הפריחה ב-BCI מחובר ל"' + x.name + '" – המשימות והתאריכים יסונכרנו בדף האצווה'); renderRooms(CF.data); }
     catch (e) { say('לא נשמר – ' + e.message, true); }
   });
 }
@@ -189,8 +200,9 @@ function renderInv(d) {
 cfOn(render);
 async function start() {
   $('refresh').classList.add('spin'); say('');
-  const T = store.get('batchsrv'); LINK = T && T.link || null;
-  api('action=batch').then((j) => { LINK = j.link || null; store.set('batchsrv', j); if (CF.data) renderRooms(CF.data); }).catch(() => {});
+  const linksOf = (j) => ((j && j.list) || []).map((b) => b.link && b.link.batch).filter(Boolean);
+  LINKS = linksOf(store.get('batches'));
+  api('action=batches').then((j) => { LINKS = linksOf(j); store.set('batches', j); if (CF.data) renderRooms(CF.data); }).catch(() => {});
   const ok = await cfStart();
   $('refresh').classList.remove('spin');
   if (!ok) { $('app').hidden = !CF.data; $('login').hidden = false; cfLoginBox($('login'), () => { $('login').hidden = true; $('app').hidden = false; }); $('sub').textContent = 'CannaFlow · צריך להתחבר פעם אחת'; return; }
