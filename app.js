@@ -238,8 +238,8 @@ function spark(vals, color) {
   return '<svg class="sp" viewBox="0 0 100 22" preserveAspectRatio="none"><path d="' + vals.map((v, i) => (i ? 'L' : 'M') + (i * 100 / (vals.length - 1)).toFixed(1) + ',' + (19 - (v - mn) / r * 16).toFixed(1)).join('') + '" fill="none" stroke="' + color + '" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>';
 }
 /** a metric: colour dot + name, the value now, the target, the trend of the chosen range */
-function ktile(label, color, value, unit, target, vals, st, sub) {
-  return '<div class="k ' + (st || '') + '"><div class="l"><span class="dot" style="background:' + color + '"></span>' + label + '</div><div class="v">' + value + (unit ? '<small>' + unit + '</small>' : '') + '</div><div class="t">' + (target || '&nbsp;') + '</div>' + (vals ? spark(vals, color) : '') + (sub ? '<div class="s">' + sub + '</div>' : '') + '</div>';
+function ktile(label, color, value, unit, target, vals, st, sub, m) {
+  return '<div class="k ' + (st || '') + '"' + (m ? ' data-m="' + m + '" role="button" title="גרף מורחב וייצוא"' : '') + '><div class="l"><span class="dot" style="background:' + color + '"></span>' + label + '</div><div class="v">' + value + (unit ? '<small>' + unit + '</small>' : '') + '</div><div class="t">' + (target || '&nbsp;') + '</div>' + (vals ? spark(vals, color) : '') + (sub ? '<div class="s">' + sub + '</div>' : '') + '</div>';
 }
 const legend = (a, w, when) => '<div class="lg2">' + (when ? '<span class="when">' + when + '</span>' : '') + [['VPD', COL.vpd, a ? fmt(a.vpd, 2) : '—'], ['טמפ׳', COL.temp, a ? fmt(a.temp, 1) + '°' : '—'], ['לחות', COL.rh, a ? fmt(a.rh) + '%' : '—'], ['משקל', COL.w, w != null ? fmt(w) + 'g' : '—'], ['השקיה', COL.irr, '']].map((x) => '<span><i class="dot" style="background:' + x[1] + '"></i>' + x[0] + (x[2] ? ' <b>' + x[2] + '</b>' : '') + '</span>').join('') + '</div>';
 
@@ -292,6 +292,56 @@ function rangeSeg(el, opts, onChange) {
   const draw = () => { el.innerHTML = opts.map((o) => '<button class="' + (o[0] === h ? 'on' : '') + '" data-h="' + o[0] + '">' + o[1] + '</button>').join(''); el.querySelectorAll('button').forEach((b) => b.onclick = () => { h = +b.dataset.h; store.set('range', h); draw(); onChange(h); }); };
   draw(); return () => h;
 }
+/* ---------- one measured value, big: chart for a chosen range, min / avg / max, and the numbers as a CSV file ---------- */
+const METRICS = {
+  vpd:  { name: 'VPD', unit: 'kPa', color: COL.vpd, d: 2, of: (P) => P.air.map((p) => [p.t, p.vpd]), band: 'vpd' },
+  temp: { name: 'טמפרטורה', unit: '°C', color: COL.temp, d: 1, of: (P) => P.air.map((p) => [p.t, p.temp]), band: 'temp' },
+  rh:   { name: 'לחות', unit: '%', color: COL.rh, d: 0, of: (P) => P.air.map((p) => [p.t, p.rh]), band: 'rh' },
+  db:   { name: 'ייבוש (dryback)', unit: '%', color: COL.w, d: 1, of: (P) => P.A.pts.map((p) => [p.t, p.db]), band: 'db' },
+  w:    { name: 'משקל', unit: 'g', color: COL.w, d: 0, of: (P) => P.A.pts.map((p) => [p.t, p.w]) },
+};
+/** opens the big view of a metric. ph = the targets in force (for the green band). The data comes from the server for the chosen range. */
+function openMetric(key, ph) {
+  const M = METRICS[key]; if (!M) return;
+  const ov = document.createElement('div'); ov.className = 'mx';
+  ov.innerHTML = '<div class="mxb"><div class="mxh"><b><span class="dot" style="background:' + M.color + '"></span>' + M.name + ' <small>' + M.unit + '</small></b><span class="fl"></span><button class="icon-btn" data-x aria-label="סגור">✕</button></div>' +
+    '<div class="seg rng" id="mxR"></div><div class="mxv" id="mxV">טוען…</div><div class="chart" id="mxC"></div><div class="mxs" id="mxS"></div>' +
+    '<div class="links"><button class="btn primary" id="mxCsv">⬇ ייצוא CSV</button></div></div>';
+  document.body.appendChild(ov); document.body.style.overflow = 'hidden';
+  const close = () => { ov.remove(); document.body.style.overflow = ''; };
+  ov.onclick = (e) => { if (e.target === ov || e.target.closest('[data-x]')) close(); };
+  let pts = [], H = 48;
+  const opts = [[24, '24 שע׳'], [48, 'יומיים'], [168, '7 ימים'], [720, '30 יום']];
+  const seg = () => { $('mxR').innerHTML = opts.map((o) => '<button class="' + (o[0] === H ? 'on' : '') + '" data-h="' + o[0] + '">' + o[1] + '</button>').join(''); $('mxR').querySelectorAll('button').forEach((b) => b.onclick = () => { H = +b.dataset.h; seg(); load(); }); };
+  const draw = () => {
+    const t1 = Date.now(), t0 = t1 - H * 3600000, P2 = pts.filter((p) => p[0] >= t0 && p[1] != null && isFinite(p[1])), v = P2.map((p) => p[1]);
+    if (!v.length) { $('mxC').innerHTML = ''; $('mxV').textContent = 'אין נתונים בטווח הזה'; $('mxS').innerHTML = ''; return; }
+    const mn = arrMin(v), mx = arrMax(v), avg = v.reduce((a, b) => a + b, 0) / v.length, pad = (mx - mn) * 0.1 || 1, b = ph && M.band && ph[M.band];
+    const lo = Math.min(mn, b ? b[0] : mn) - pad, hi = Math.max(mx, b ? b[1] : mx) + pad, last = P2[P2.length - 1];
+    $('mxV').innerHTML = '<b>' + fmt(last[1], M.d) + '</b> ' + M.unit + ' <span class="muted small">' + dm(last[0]) + ' ' + hm(last[0]) + (Date.now() - last[0] > 30 * 60000 ? ' · ⚠ ' + ago(last[0]) : '') + '</span>';
+    chart($('mxC'), { t0, t1, height: Math.min(360, Math.max(220, window.innerHeight * 0.4)), yl: { min: lo, max: hi, fmt: (x) => fmt(x, M.d) }, bands: b ? [[b[0], b[1], 'color-mix(in srgb, var(--green) 14%, transparent)']] : [],
+      series: [{ pts: P2, color: M.color, gap: 40 * 60000, width: 2 }],
+      onHover: (t) => { let best = null, bd = Infinity; P2.forEach((p) => { const d = Math.abs(p[0] - t); if (d < bd) { bd = d; best = p; } }); if (!best) return null; $('mxV').innerHTML = '<b>' + fmt(best[1], M.d) + '</b> ' + M.unit + ' <span class="muted small">' + dm(best[0]) + ' ' + hm(best[0]) + '</span>'; return { t: best[0], v: best[1] }; } });
+    const inB = b ? v.filter((x) => x >= b[0] && x <= b[1]).length / v.length * 100 : null;
+    $('mxS').innerHTML = [['מינימום', fmt(mn, M.d)], ['ממוצע', fmt(avg, M.d)], ['מקסימום', fmt(mx, M.d)]].concat(inB != null ? [['בטווח היעד', fmt(inB) + '%']] : []).concat([['מדידות', v.length]]).map((x) => '<div><small>' + x[0] + '</small><b>' + x[1] + '</b></div>').join('');
+  };
+  const load = async () => {
+    $('mxV').textContent = 'טוען…';
+    try { const days = H > 168 ? 30 : H > 48 ? 7 : 3, j = await api('action=grow&days=' + days); pts = M.of(plantNow(j.points || [], j.cycle || {})); draw(); }
+    catch (e) { $('mxV').textContent = 'לא נטען – ' + e.message; }
+  };
+  $('mxCsv').onclick = () => {
+    const t0 = Date.now() - H * 3600000, rows = pts.filter((p) => p[0] >= t0 && p[1] != null);
+    const pad2 = (n) => String(n).padStart(2, '0'), loc = (t) => { const d = new Date(t); return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()) + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes()); };
+    const csv = '﻿' + 'time,' + key + ' (' + M.unit + ')\n' + rows.map((p) => loc(p[0]) + ',' + (+p[1]).toFixed(M.d + 1)).join('\n');
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })); a.download = 'bci_' + key + '_' + dayKey(Date.now()) + '_' + (H / 24 >= 1 ? H / 24 + 'd' : H + 'h') + '.csv';
+    document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  };
+  seg(); load();
+}
+/** makes the metric tiles of a box open the big view: tiles carry data-m="vpd|temp|rh|db|w" */
+function metricTiles(box, ph) { box.querySelectorAll('[data-m]').forEach((el) => { el.style.cursor = 'pointer'; el.onclick = (e) => { e.preventDefault(); e.stopPropagation(); openMetric(el.dataset.m, ph); }; }); }
+
 /* ---------- areas of the app (side rail on wide screens, carousel on the home page), the order / hidden ones from the settings ---------- */
 const AREAS = [
   { id: 'home',  icon: '🏠', name: 'בית',    href: 'index.html', pages: ['index.html', ''], sub: '' },
@@ -407,7 +457,10 @@ api('action=appsettings').then((j) => { if (!j || !j.ok) return; const changed =
   document.addEventListener('focusin', (e) => { if (ours(e.target)) open(e.target); });
   document.addEventListener('click', (e) => { if (ours(e.target)) open(e.target); });
   // a tap anywhere else closes the keypad – after that tap did its own job, so the page does not jump under the finger
-  document.addEventListener('click', (e) => { if (cur && !pad.contains(e.target) && !(e.target.matches && e.target.matches(SEL))) setTimeout(close, 0); }, true);
+  // (decided by where the finger went DOWN – the page may move under it while the keypad opens, and the click then lands on the page)
+  let downOut = false;
+  document.addEventListener('pointerdown', (e) => { downOut = !!cur && !pad.contains(e.target) && !(e.target.matches && e.target.matches(SEL)); }, true);
+  document.addEventListener('click', (e) => { if (cur && downOut && !pad.contains(e.target) && !(e.target.matches && e.target.matches(SEL))) setTimeout(close, 0); downOut = false; }, true);
   document.addEventListener('focusin', (e) => { const t = e.target; if (cur && t !== cur && !(t.matches && t.matches(SEL))) setTimeout(close, 0); });   // typing in a text field
   pad.addEventListener('pointerdown', (e) => e.preventDefault());       // keep the field focused while keys are pressed
   pad.addEventListener('click', (e) => {
