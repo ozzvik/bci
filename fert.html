@@ -46,6 +46,15 @@
   .tog b.on { background: var(--fert); color: #fff; }
   .btn.fert { background: var(--fert-d); border-color: var(--fert-d); color: #fff; }
   .seg button.on { color: var(--fert); }
+  .feg { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 6px; }
+  .feg label { display: flex; align-items: center; gap: 4px; background: var(--card2); border-radius: 9px; padding: 5px 7px; font-size: calc(12px * var(--fs, 1)); color: var(--muted); }
+  .feg label b { min-width: 34px; color: var(--ink); direction: ltr; }
+  .feg input { width: 100%; min-width: 0; font: inherit; font-weight: 700; text-align: center; color: var(--ink); background: var(--card); border: 1px solid var(--line); border-radius: 7px; padding: 5px 2px; direction: ltr; }
+  .dtab { width: 100%; border-collapse: collapse; font-size: calc(13px * var(--fs, 1)); }
+  .dtab th { color: var(--muted); font-weight: 600; text-align: start; padding: 3px 4px; } .dtab td { padding: 5px 4px; border-top: 1px solid var(--line); direction: ltr; text-align: start; }
+  .dtab td:first-child { direction: rtl; } .up { color: var(--green); } .dn { color: var(--red); }
+  .hist { margin: 6px 0 0; padding: 6px 0 0; border-top: 1px dashed var(--line); font-size: calc(12.5px * var(--fs, 1)); }
+  .hist div { display: flex; gap: 8px; align-items: center; padding: 3px 0; } .hist span { flex: 1; color: var(--muted); }
   .psel { display: flex; align-items: center; gap: 8px; min-width: 0; background: var(--card2); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; flex: 1; }
   .psel select { flex: 1; min-width: 0; width: 100%; text-overflow: ellipsis; font: inherit; font-size: calc(15px * var(--fs, 1)); font-weight: 700; color: var(--ink); background: none; border: 0; }
   .stock-ed { background: var(--card2); border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin-bottom: 10px; }
@@ -110,6 +119,11 @@
           <h2>כמות דשנים <span class="r">גרם לקוב מי השקיה</span></h2>
           <div class="list" id="fertAmt" style="margin-top:0"></div>
         </div>
+        <div class="card" id="diffCard" hidden>
+          <h2>שינויים מול התוכנית השמורה <span class="r" id="diffName"></span></h2>
+          <div id="diffBody"></div>
+          <div class="links" style="margin-top:8px"><button class="btn" id="diffUndo">↺ חזור לשמור</button></div>
+        </div>
         <div class="links">
           <button class="btn fert" id="saveProg">💾 שמור כתוכנית</button>
           <button class="btn" data-tab="stocks">ערוך סטוקים ›</button>
@@ -124,6 +138,18 @@
       <h2>הרכב הסטוקים <span class="r">ערכים לכל מיכל · גרם</span></h2>
       <div id="stocksEd"></div>
       <div class="links"><button class="btn" id="addStock">+ סטוק</button><button class="btn fert" id="saveStocks">💾 שמור סטוקים</button></div>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <h2>ספריית הדשנים <span class="r">אחוז יסוד במוצר – כפי שפרסם היצרן</span></h2>
+      <div class="list" id="fertLib" style="margin-top:0"></div>
+      <div id="fertEd" hidden>
+        <div class="form" style="margin:8px 0"><label style="flex:1 1 100%">שם המוצר<input id="feName" placeholder="למשל: Haifa Cal Prime" style="direction:ltr;text-align:start"></label></div>
+        <label class="small muted" style="display:flex;gap:6px;align-items:center;margin-bottom:8px"><input type="checkbox" id="feOx" style="width:auto"> היצרן מפרסם כתחמוצות (P₂O₅, K₂O, CaO, MgO) – אמיר ליסודות</label>
+        <div class="feg" id="feGrid"></div>
+        <div class="links" style="margin-top:8px"><button class="btn fert" id="feSave">💾 שמור דשן</button><button class="btn" id="feCancel">ביטול</button><button class="btn" id="feDel" style="color:var(--red)">מחק</button></div>
+        <div class="msg" id="feMsg"></div>
+      </div>
+      <div class="links"><button class="btn" id="feNew">➕ דשן חדש</button></div>
     </div>
   </section>
 
@@ -151,7 +177,7 @@ let inj = {};              // ל/קוב לכל סטוק (מצב עבודה)
 function showTab(t) {
   document.querySelectorAll('.seg [data-tab]').forEach((b) => b.classList.toggle('on', b.dataset.tab === t));
   ['calc', 'stocks', 'programs'].forEach((x) => $('tab-' + x).hidden = x !== t);
-  if (t === 'stocks') renderStocksEd(); if (t === 'programs') renderProgList();
+  if (t === 'stocks') { renderStocksEd(); renderFertLib(); } if (t === 'programs') renderProgList();
 }
 document.querySelectorAll('[data-tab]').forEach((b) => b.onclick = () => showTab(b.dataset.tab));
 
@@ -187,7 +213,7 @@ function renderElems() {
   $('elements').querySelectorAll('input').forEach((i) => i.oninput = () => { cur.targets = cur.targets || {}; const v = i.value === '' ? null : Number(i.value); if (v == null || !isFinite(v) || v < 0) delete cur.targets[i.dataset.e]; else cur.targets[i.dataset.e] = v; recalc(); });
 }
 function recalc() {
-  const r = forward(STOCKS, inj);
+  const r = forward(STOCKS, inj); setTimeout(renderDiff, 0);
   const targets = cur.targets || {};
   $('outTiles').innerHTML = [
     tile('EC מתקבל', fmt(r.ec, 2), 'mS', cur.mode === 'ec' ? 'יעד ' + fmt(Number($('ecTarget').value) || cur.targetEC, 2) : 'הערכה', ''),
@@ -239,12 +265,69 @@ $('saveProg').onclick = async () => {
   const name = prompt('שם התוכנית:', cur.name || 'תוכנית חדשה'); if (!name) return;
   const id = cur.id && cur.name === name ? cur.id : 'p' + Date.now();
   const p = { id, name, phase: cur.phase || '', mode: cur.mode, targetEC: Number($('ecTarget').value) || cur.targetEC, inj: Object.assign({}, inj), targets: cur.targets || {} };
-  const i = PROGRAMS.findIndex((x) => x.id === id); if (i >= 0) PROGRAMS[i] = p; else PROGRAMS.push(p);
+  const i = PROGRAMS.findIndex((x) => x.id === id);
+  if (i >= 0) { const old = PROGRAMS[i], same = JSON.stringify(old.inj) === JSON.stringify(p.inj) && old.targetEC === p.targetEC && JSON.stringify(old.targets || {}) === JSON.stringify(p.targets);
+    p.history = same ? (old.history || []) : [{ at: new Date().toISOString(), inj: old.inj, targetEC: old.targetEC, targets: old.targets || {} }].concat(old.history || []).slice(0, 5); PROGRAMS[i] = p; }
+  else PROGRAMS.push(p);
   cur = JSON.parse(JSON.stringify(p));
   const ok = await pushFert({ programs: PROGRAMS }); fillProgSelect(); $('prog').value = id;
   msg(ok ? 'התוכנית נשמרה וסונכרנה' : 'נשמרה במכשיר — תסונכרן כשהשרת יתמוך');
 };
 $('prog').onchange = () => loadProgram($('prog').value);
+
+/* ---------- what changed against the saved program ---------- */
+const sname = (id) => id === 'ACID' ? 'חומצה' : id;
+function diffLine(a, b) { const ks = [...new Set(Object.keys(a || {}).concat(Object.keys(b || {})))].filter((k) => (+(a || {})[k] || 0) !== (+(b || {})[k] || 0)); return ks.length ? ks.map((k) => sname(k) + ' ' + fmt(+(a || {})[k] || 0, 2) + '→' + fmt(+(b || {})[k] || 0, 2)).join(', ') : 'ללא שינוי בהזרקה'; }
+function renderDiff() {
+  const saved = cur && PROGRAMS.find((p) => p.id === cur.id); if (!saved) { $('diffCard').hidden = true; return; }
+  const ecNow = Number($('ecTarget').value) || cur.targetEC, ks = STOCKS.map((s) => s.id).filter((k) => (+(saved.inj || {})[k] || 0) !== (+inj[k] || 0));
+  if (!ks.length && (saved.targetEC || 0) === (ecNow || 0)) { $('diffCard').hidden = true; return; }
+  const A = forward(STOCKS, saved.inj || {}), B = forward(STOCKS, inj), d = (x, y, n) => { const v = y - x; return Math.abs(v) < Math.pow(10, -n) / 2 ? '' : '<span class="' + (v > 0 ? 'up' : 'dn') + '">' + (v > 0 ? '+' : '') + fmt(v, n) + '</span>'; };
+  const rows = ks.map((k) => [sname(k) + ' (ל׳/קוב)', fmt(+(saved.inj || {})[k] || 0, 2), fmt(+inj[k] || 0, 2), d(+(saved.inj || {})[k] || 0, +inj[k] || 0, 2)])
+    .concat(ELEMS.filter((e) => Math.abs(B.ppm[e] - A.ppm[e]) >= 0.5).map((e) => [ELEM_HE[e] + ' ' + e + ' (ppm)', fmt(A.ppm[e]), fmt(B.ppm[e]), d(A.ppm[e], B.ppm[e], 0)]))
+    .concat([['EC מתקבל', fmt(A.ec, 2), fmt(B.ec, 2), d(A.ec, B.ec, 2)]]);
+  $('diffName').textContent = saved.name;
+  $('diffBody').innerHTML = '<table class="dtab"><tr><th></th><th>שמור</th><th>עכשיו</th><th>הפרש</th></tr>' + rows.map((r) => '<tr><td>' + r[0] + '</td><td>' + r[1] + '</td><td>' + r[2] + '</td><td>' + r[3] + '</td></tr>').join('') + '</table>';
+  $('diffCard').hidden = false;
+}
+$('diffUndo').onclick = () => { const saved = PROGRAMS.find((p) => p.id === cur.id); if (!saved) return; inj = Object.assign({}, saved.inj); STOCKS.forEach((s) => { if (inj[s.id] == null) inj[s.id] = 0; }); $('ecTarget').value = saved.targetEC || ''; renderStockRows(); recalc(); };
+
+/* ---------- the fertilizer library: a new product with the percentages of the label ---------- */
+const FE_ELEMS = ['N', 'P', 'K', 'Ca', 'Mg', 'S', 'Fe', 'Mn', 'Zn', 'B', 'Cu', 'Mo', 'Cl'];
+const OX = { P: ['P₂O₅', 0.4364], K: ['K₂O', 0.8301], Ca: ['CaO', 0.7147], Mg: ['MgO', 0.6030] };   // oxide → element
+let feEditing = null;
+function renderFertLib() {
+  const used = {}; STOCKS.forEach((s) => (s.items || []).forEach((it) => used[it.fert] = (used[it.fert] || []).concat(s.id)));
+  $('fertLib').innerHTML = Object.keys(FERTS).sort().map((f) => '<div class="it" data-f="' + esc(f) + '"><b style="direction:ltr">' + esc(f) + '</b><span class="muted small">' + Object.keys(FERTS[f]).filter((e) => FERTS[f][e]).map((e) => e + ' ' + FERTS[f][e]).join(' · ') + (used[f] ? ' · במיכל ' + used[f].join(', ') : '') + '</span><span class="r"><button class="btn small">ערוך</button></span></div>').join('');
+  $('fertLib').querySelectorAll('.it').forEach((el) => el.onclick = () => openFe(el.dataset.f));
+}
+function openFe(name) {
+  feEditing = name || null; const c = (name && FERTS[name]) || {};
+  $('feName').value = name || ''; $('feOx').checked = false; $('feDel').hidden = !name; $('feMsg').textContent = '';
+  const draw = () => { const ox = $('feOx').checked; $('feGrid').innerHTML = FE_ELEMS.map((e) => { const o = ox && OX[e], v = c[e] ? (o ? +(c[e] / o[1]).toFixed(2) : c[e]) : ''; return '<label><b>' + (o ? o[0] : e) + '</b><input type="number" step="0.1" min="0" max="100" data-e="' + e + '" value="' + v + '" aria-label="' + (o ? o[0] : e) + ' %"></label>'; }).join(''); };
+  $('feOx').onchange = () => { $('feGrid').querySelectorAll('input').forEach((i) => { const e = i.dataset.e, v = i.value === '' ? null : Number(i.value), o = OX[e]; if (v != null && o) c[e] = $('feOx').checked ? v : v * o[1]; else if (v != null) c[e] = v; else delete c[e]; }); draw(); };
+  draw(); $('fertEd').hidden = false; $('feNew').hidden = true; $('fertEd').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+$('feNew').onclick = () => openFe(null);
+$('feCancel').onclick = () => { $('fertEd').hidden = true; $('feNew').hidden = false; };
+$('feSave').onclick = async () => {
+  const name = $('feName').value.trim(); if (!name) { $('feMsg').textContent = 'צריך שם למוצר'; return; }
+  if (name !== feEditing && FERTS[name]) { $('feMsg').textContent = 'כבר יש דשן בשם הזה'; return; }
+  const ox = $('feOx').checked, comp = {}; let sum = 0;
+  $('feGrid').querySelectorAll('input').forEach((i) => { if (i.value === '') return; const e = i.dataset.e, v = Number(i.value); if (!isFinite(v) || v <= 0) return; comp[e] = +(ox && OX[e] ? v * OX[e][1] : v).toFixed(2); sum += comp[e]; });
+  if (!sum) { $('feMsg').textContent = 'הקלד לפחות אחוז אחד'; return; }
+  if (sum > 100) { $('feMsg').textContent = 'סך האחוזים מעל 100 – בדוק את הערכים'; return; }
+  if (feEditing && feEditing !== name) { delete FERTS[feEditing]; STOCKS.forEach((s) => (s.items || []).forEach((it) => { if (it.fert === feEditing) it.fert = name; })); }
+  FERTS[name] = comp;
+  const ok = await pushFert({ ferts: FERTS, stocks: STOCKS }); $('fertEd').hidden = true; $('feNew').hidden = false;
+  renderFertLib(); renderStocksEd(); recalc(); msg(ok ? 'הדשן "' + name + '" נשמר – אפשר להוסיף אותו לסטוק' : 'נשמר במכשיר');
+};
+$('feDel').onclick = async () => {
+  const n = feEditing; if (!n) return; const inUse = STOCKS.some((s) => (s.items || []).some((it) => it.fert === n));
+  if (inUse) { $('feMsg').textContent = 'הדשן נמצא בסטוק – הסר אותו מהסטוק קודם'; return; }
+  if (!confirm('למחוק את "' + n + '" מהספרייה?')) return;
+  delete FERTS[n]; await pushFert({ ferts: FERTS }); $('fertEd').hidden = true; $('feNew').hidden = false; renderFertLib(); renderStocksEd();
+};
 
 /* ---------- עריכת סטוקים ---------- */
 function fertOptions(sel) { return Object.keys(FERTS).map((f) => '<option' + (f === sel ? ' selected' : '') + '>' + esc(f) + '</option>').join(''); }
@@ -280,8 +363,10 @@ function renderProgList() {
   $('progList').innerHTML = PROGRAMS.map((p) =>
     '<div class="it' + (cur && p.id === cur.id ? ' on' : '') + '" data-id="' + esc(p.id) + '"><b>' + esc(p.name) + '</b>' +
     '<span class="muted small">' + esc(p.phase || '') + ' · ' + (p.mode === 'ec' ? 'EC ' + fmt(p.targetEC, 2) : 'ppm') + '</span>' +
-    '<span class="r">' + (p.id !== 'default' ? '<button class="del btn small" data-del="' + esc(p.id) + '" style="color:var(--red)">מחק</button>' : '') + '</span></div>'
+    '<span class="r">' + (p.id !== 'default' ? '<button class="del btn small" data-del="' + esc(p.id) + '" style="color:var(--red)">מחק</button>' : '') + '</span>' +
+    ((p.history || []).length ? '<div class="hist">' + p.history.map((h, hi) => '<div><span>גרסה מ-' + dm(Date.parse(h.at)) + ' ' + hm(Date.parse(h.at)) + ' · ' + diffLine(h.inj, p.inj) + '</span><button class="btn small" data-hp="' + esc(p.id) + '" data-hi="' + hi + '">פתח</button></div>').join('') + '</div>' : '') + '</div>'
   ).join('');
+  $('progList').querySelectorAll('[data-hp]').forEach((b) => b.onclick = (e) => { e.stopPropagation(); const p = PROGRAMS.find((x) => x.id === b.dataset.hp), h = p.history[+b.dataset.hi]; loadProgram(p.id); inj = Object.assign({}, h.inj); if (h.targetEC) $('ecTarget').value = h.targetEC; renderStockRows(); recalc(); fillProgSelect(); showTab('calc'); msg('נפתחה גרסה קודמת – ההבדלים מול השמורה למטה. "שמור" יחזיר אותה.'); });
   $('progList').querySelectorAll('.it').forEach((it) => it.onclick = (e) => { if (e.target.dataset.del) return; loadProgram(it.dataset.id); fillProgSelect(); showTab('calc'); });
   $('progList').querySelectorAll('[data-del]').forEach((b) => b.onclick = async (e) => { e.stopPropagation(); PROGRAMS = PROGRAMS.filter((p) => p.id !== b.dataset.del); await pushFert({ programs: PROGRAMS }); renderProgList(); fillProgSelect(); });
   $('progHint').textContent = PROGRAMS.length + ' תוכניות · נשמרות בשרת ומסונכרנות לכל המכשירים';
