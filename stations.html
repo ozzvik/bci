@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a101c">
+<title>תחנות · BCI</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+  .rmh { margin: 18px 4px 8px; font-size: calc(14px * var(--fs, 1)); font-weight: 800; color: var(--muted); display: flex; gap: 8px; align-items: center; }
+  .st { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 10px; }
+  .st.off { border-color: color-mix(in srgb, var(--red) 50%, var(--line)); }
+  .st h3 { margin: 0; font-size: calc(16px * var(--fs, 1)); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .st h3 small { color: var(--muted); font-weight: 500; font-size: calc(12px * var(--fs, 1)); }
+  .st h3 .r { margin-inline-start: auto; font-weight: 500; font-size: calc(12px * var(--fs, 1)); color: var(--muted); }
+  .st.off h3 .r { color: var(--red); }
+  .st .tiles { grid-template-columns: repeat(auto-fill, minmax(105px, 1fr)); gap: 8px; margin-top: 10px; }
+  .st .tile { min-height: 70px; padding: 9px 10px; } .st .tile .v { font-size: calc(21px * var(--fs, 1)); }
+  .st .ed { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 10px; }
+  .st .ed .form input { width: 130px; }
+  .st .id { direction: ltr; unicode-bidi: plaintext; font-size: calc(11.5px * var(--fs, 1)); color: var(--muted); }
+  .linkbtn { background: none; border: 0; color: var(--accent); font: inherit; font-size: calc(12.5px * var(--fs, 1)); font-weight: 700; padding: 0; cursor: pointer; }
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="icon-btn" href="index.html" aria-label="חזרה" id="back"></a>
+  <div class="t"><h1>תחנות</h1><div class="sub" id="sub">טוען…</div></div>
+  <button class="icon-btn" id="refresh" aria-label="רענון"></button>
+</header>
+
+<main class="wrap">
+  <div id="list"></div>
+  <p class="muted small" style="margin:14px 4px">תחנה חדשה מופיעה כאן לבד, דקות אחרי שהיא מתחילה לשלוח. לחיצה על ✏️ נותנת לה שם, חדר ומקום בחדר.</p>
+  <label class="muted small" style="display:flex;gap:6px;align-items:center;margin:0 4px"><input type="checkbox" id="showHidden"> להציג גם תחנות מוסתרות</label>
+  <div class="msg" id="msg"></div>
+</main>
+
+<script src="app.js"></script>
+<script>
+$('refresh').innerHTML = ICON.refresh; $('back').innerHTML = ICON.back;
+/* what the Culception RS485 sensors send (4 values): known IDs get names, the rest are shown raw */
+const SENSOR = {
+  1:  { name: 'קרינה', tiles: (v) => [['קרינה', fmt(v[0], 0), '', 'מכשיר 1']] },
+  12: { name: 'EC', tiles: (v) => [['EC מצע', fmt(v[0], 2), '', 'מכשיר 12'], ['טמפ׳ מצע', fmt(v[1], 1), '°C', 'מכשיר 12']] },
+  14: { name: 'EC', tiles: (v) => [['EC מצע', fmt(v[0], 2), '', 'מכשיר 14'], ['טמפ׳ מצע', fmt(v[1], 1), '°C', 'מכשיר 14']] },
+};
+let DATA = null, editing = null;
+const OFF_MIN = 20;                                         // no data for 20 minutes = the station is shown as off
+
+function card(s) {
+  const lastT = s.last ? Date.parse(s.last) : 0, off = !lastT || Date.now() - lastT > OFF_MIN * 60000;
+  const T = [];
+  if (s.w != null) T.push(tile('משקל', fmt(s.w, 0), 'g', s.wAt ? hm(Date.parse(s.wAt)) : ''));
+  if (s.t != null) {
+    const v = vpdOf(s.t, s.h);
+    T.push(tile('טמפ׳', fmt(s.t, 1), '°C', ''), tile('לחות', fmt(s.h, 0), '%', ''), tile('VPD', fmt(v, 2), 'kPa', '', vpdState(v)));
+  }
+  Object.keys(s.sensors || {}).sort((a, b) => a - b).forEach((id) => {
+    const x = s.sensors[id], def = SENSOR[id];
+    if (def) def.tiles(x.v).forEach((t) => T.push(tile(t[0], t[1], t[2], t[3])));
+    else T.push(tile('מכשיר ' + id, x.v.map((n) => fmt(n, 2)).join(' · '), '', ''));
+  });
+  const title = s.name || s.id;
+  const ed = editing === s.id ? '<div class="ed"><div class="form">' +
+    '<label>שם<input id="eName" value="' + esc(s.name) + '" placeholder="למשל: שולחן 3"></label>' +
+    '<label>חדר<input id="eRoom" value="' + esc(s.room) + '" placeholder="למשל: אינדור 1"></label>' +
+    '<label>מקום בחדר<input id="eSpot" value="' + esc(s.spot) + '" placeholder="למשל: שורה 2, מזרח"></label>' +
+    '<label style="flex-direction:row;align-items:center;gap:6px"><input type="checkbox" id="eHide"' + (s.hidden ? ' checked' : '') + '> הסתר</label>' +
+    '<button class="btn primary" onclick="save(\'' + esc(s.id) + '\')">שמור</button><button class="btn" onclick="editing=null;render()">ביטול</button></div></div>' : '';
+  return '<div class="st' + (off ? ' off' : '') + '"><h3>📡 ' + esc(title) + (s.spot ? ' <small>' + esc(s.spot) + '</small>' : '') +
+    ' <button class="linkbtn" onclick="editing=\'' + esc(s.id) + '\';render()" aria-label="עריכה">✏️</button>' +
+    '<span class="r">' + (lastT ? (off ? '⚠ ' : '') + ago(lastT) : 'עוד לא שלחה') + '</span></h3>' +
+    (s.name ? '<div class="id">' + esc(s.id) + '</div>' : '') +
+    (T.length ? '<div class="tiles">' + T.join('') + '</div>' : '<p class="muted small" style="margin:8px 0 0">אין נתונים ב-3 הימים האחרונים</p>') + ed + '</div>';
+}
+function render() {
+  if (!DATA) return;
+  const all = DATA.stations || [], show = all.filter((s) => !s.hidden || $('showHidden').checked);
+  const on = all.filter((s) => s.last && Date.now() - Date.parse(s.last) <= OFF_MIN * 60000).length;
+  $('sub').textContent = all.length + ' תחנות · ' + on + ' פעילות';
+  const rooms = {};
+  show.forEach((s) => { (rooms[s.room || 'בלי חדר'] = rooms[s.room || 'בלי חדר'] || []).push(s); });
+  const names = Object.keys(rooms).sort((a, b) => a === 'בלי חדר' ? 1 : b === 'בלי חדר' ? -1 : a.localeCompare(b, 'he'));
+  $('list').innerHTML = names.length ? names.map((r) => '<div class="rmh">🏠 ' + esc(r) + ' <span class="muted small">' + rooms[r].length + '</span></div>' + rooms[r].map(card).join('')).join('')
+    : '<p class="muted">עדיין אין תחנות ששלחו נתונים.</p>';
+}
+async function save(id) {
+  const body = { action: 'savestation', id, name: $('eName').value.trim(), room: $('eRoom').value.trim(), spot: $('eSpot').value.trim(), hidden: $('eHide').checked };
+  $('msg').textContent = 'שומר…'; $('msg').className = 'msg';
+  try { DATA = await apiPost(body); store.set('stations', DATA); editing = null; render(); $('msg').textContent = 'נשמר ✓'; }
+  catch (e) { $('msg').textContent = e.message; $('msg').className = 'msg err'; }
+}
+async function loadAll() {
+  if (editing) return;                                      // do not wipe a form that is being filled in
+  $('refresh').classList.add('spin'); $('msg').textContent = ''; $('msg').className = 'msg';
+  await cached('stations', 'action=stations', (j) => { DATA = j; render(); }, (e, had) => { $('msg').textContent = (had ? 'מוצגים הנתונים האחרונים שנשמרו · ' : '') + e.message; $('msg').className = 'msg err'; });
+  $('refresh').classList.remove('spin');
+}
+$('showHidden').onchange = render;
+$('refresh').onclick = () => { editing = null; loadAll(); };
+loadAll();
+setInterval(() => { if (!document.hidden) loadAll(); }, 2 * 60000);
+</script>
+</body>
+</html>
