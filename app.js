@@ -348,6 +348,7 @@ const AREAS = [
   { id: 'mgmt',  icon: '🗂️', name: 'ניהול',  href: 'mgmt.html', pages: ['mgmt.html'], sub: 'משימות · CannaFlow', c: '#f5b942' },
   { id: 'prop',  icon: '🌱', name: 'ריבוי',  href: 'prop.html', pages: ['prop.html'], sub: 'אמהות ומגשים', c: '#3b8cff' },
   { id: 'batch', icon: '🌿', name: 'גידול',  href: 'batch.html', pages: ['batch.html', 'grow.html', 'photos.html'], sub: 'האצווה בחדר', c: '#3ddc97' },
+  { id: 'stations', icon: '📡', name: 'תחנות', href: 'stations.html', pages: ['stations.html'], sub: 'חיישנים לפי חדר ומקום', c: '#22c3e6' },
   { id: 'inv',   icon: '📦', name: 'מלאי',   href: 'mgmt.html#inv', pages: [], sub: 'מסונכרן עם CannaFlow', c: '#9d8cff' },
   { id: 'fert',  icon: '💧', name: 'דישון',  href: 'fert.html', pages: ['fert.html'], sub: 'מחשבון ותוכניות', c: '#22c3e6' },
   { id: 'set',   icon: '⚙️', name: 'הגדרות', href: 'settings.html', pages: ['settings.html'], sub: 'נתונים, עיצוב, גישה', c: '#7f93b5' },
