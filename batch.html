@@ -410,7 +410,7 @@ $('refresh').onclick = loadAll;
 loadAll();
 let rz, lastW = window.innerWidth;                 // only a change of width redraws (the keyboard opening changes the height only)
 window.addEventListener('resize', () => { if (window.innerWidth === lastW) return; lastW = window.innerWidth; clearTimeout(rz); rz = setTimeout(render, 200); });
-setInterval(() => { if (!document.hidden && !EDIT && !FEDIT && document.activeElement !== $('nText')) loadAll(); }, 5 * 60000);
+liveRefresh(() => !document.hidden && !EDIT && !FEDIT && document.activeElement !== $('nText'), loadAll);   // every minute, and at once when the app comes back to the screen
 </script>
 </body>
 </html>
