@@ -123,9 +123,9 @@ function chart(el, o) {
   const svg = el.querySelector('svg'), hit = svg.lastChild, cx = svg.querySelector('.cx'), cd = svg.querySelector('.cd'), tip = el.querySelector('.tip');
   const toT = (ev) => { const r = svg.getBoundingClientRect(), px = ((ev.touches ? ev.touches[0].clientX : ev.clientX) - r.left) * W / r.width; return o.t0 + (px - L) / (W - L - R) * (o.t1 - o.t0); };
   if (o.onHover) {
-    const mv = (ev) => { const p = o.onHover(toT(ev)); if (!p) return; const X = x(p.t); cx.setAttribute('x1', X); cx.setAttribute('x2', X); cx.style.display = ''; if (p.v != null) { cd.setAttribute('cx', X); cd.setAttribute('cy', (p.axis === 'r' ? yr : yl)(p.v)); cd.style.display = ''; } if (tip) { tip.style.display = ''; tip.innerHTML = p.html; const r = svg.getBoundingClientRect(), left = X * r.width / W; tip.style.left = Math.min(r.width - tip.offsetWidth - 4, Math.max(0, left + 12)) + 'px'; } };
+    const mv = (ev) => { const p = o.onHover(toT(ev)); if (!p) return; const X = x(p.t); if (o.photos) hoverPhoto(el, p.t, X > W / 2 ? 'l' : 'r'); cx.setAttribute('x1', X); cx.setAttribute('x2', X); cx.style.display = ''; if (p.v != null) { cd.setAttribute('cx', X); cd.setAttribute('cy', (p.axis === 'r' ? yr : yl)(p.v)); cd.style.display = ''; } if (tip) { tip.style.display = ''; tip.innerHTML = p.html; const r = svg.getBoundingClientRect(), left = X * r.width / W; tip.style.left = Math.min(r.width - tip.offsetWidth - 4, Math.max(0, left + 12)) + 'px'; } };
     hit.addEventListener('mousemove', mv); hit.addEventListener('touchmove', mv, { passive: true }); hit.addEventListener('touchstart', mv, { passive: true });
-    const out = () => { cx.style.display = 'none'; cd.style.display = 'none'; if (tip) tip.style.display = 'none'; };
+    const out = () => { cx.style.display = 'none'; cd.style.display = 'none'; if (tip) tip.style.display = 'none'; if (o.photos) hidePhoto(el); };
     hit.addEventListener('mouseleave', out); hit.addEventListener('touchend', () => setTimeout(out, 1800));
   }
   if (o.onClick) hit.addEventListener('click', (ev) => o.onClick(toT(ev)));
@@ -245,6 +245,93 @@ const legend = (a, w, when) => '<div class="lg2">' + (when ? '<span class="when"
 
 /** One chart of everything: VPD, temperature, humidity and the plant weight on one time line (each on its own scale),
     the green band = the VPD target, blue dots = irrigations, the shaded parts = night. o: {t0,t1,air,wpts,ev,band,height} */
+/** the app always shows the newest data: loads again every minute while the page is on the screen (not while a chart is being
+ *  looked at or a form is being filled), and at once when the phone / tab comes back to it after more than 30 seconds */
+const LIVE_MS = 60000;
+function liveRefresh(ok, load) {
+  let last = Date.now();
+  const run = () => { if (document.hidden || busyLooking() || !ok()) return; last = Date.now(); load(); };
+  setInterval(run, LIVE_MS);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - last > 30000) run(); });
+}
+/* ---------- a grid over the photo (off / 3×3 / 6×6 / 10×10, kept in this phone) ---------- */
+const GRIDS = [0, 3, 6, 10];
+const gridN = () => store.get('grid') || 0;
+function gridBtn(btn, onChange) {
+  const lab = () => { const n = gridN(); btn.textContent = n ? '▦ גריד ' + n + '×' + n : '▦ גריד'; btn.classList.toggle('primary', !!n); };
+  lab(); btn.onclick = () => { const i = GRIDS.indexOf(gridN()); store.set('grid', GRIDS[(i + 1) % GRIDS.length]); lab(); if (onChange) onChange(); };
+}
+/** puts the grid exactly over the picture inside box (the img may be letter-boxed by object-fit: contain) */
+function gridOver(box) {
+  if (!box) return;
+  let g = box.querySelector('.gridov'); const img = box.querySelector('img'), n = gridN();
+  if (!n || !img) { if (g) g.remove(); return; }
+  if (!g) { g = document.createElement('div'); g.className = 'gridov'; box.appendChild(g); }
+  g._fit = () => {
+    if (!img.naturalWidth || !img.isConnected) return;
+    const n2 = gridN(), bw = img.clientWidth, bh = img.clientHeight, r = Math.min(bw / img.naturalWidth, bh / img.naturalHeight), w = img.naturalWidth * r, h = img.naturalHeight * r;
+    const ob = box.getBoundingClientRect(), ib = img.getBoundingClientRect();
+    Object.assign(g.style, { left: (ib.left - ob.left + (bw - w) / 2) + 'px', top: (ib.top - ob.top + (bh - h) / 2) + 'px', width: w + 'px', height: h + 'px', backgroundSize: (w / n2) + 'px ' + (h / n2) + 'px' });
+  };
+  if (img.complete) g._fit(); img.addEventListener('load', g._fit);
+}
+window.addEventListener('resize', () => document.querySelectorAll('.gridov').forEach((g) => g._fit && g._fit()));
+/** the grid drawn on a canvas (the timelapse – so it is also in the saved video) */
+function gridCanvas(x, W, H) {
+  const n = gridN(); if (!n) return;
+  x.save(); x.strokeStyle = 'rgba(255,255,255,.32)'; x.lineWidth = Math.max(1, W / 900);
+  x.beginPath(); for (let i = 1; i < n; i++) { const a = Math.round(W * i / n) + .5, b = Math.round(H * i / n) + .5; x.moveTo(a, 0); x.lineTo(a, H); x.moveTo(0, b); x.lineTo(W, b); } x.stroke(); x.restore();
+}
+/** "הפרחה · Bulking · יום 30 · שבוע 5" */
+const phaseText = (po) => po ? po.stage.name + (po.ph && po.ph !== po.stage ? ' · ' + po.ph.name : '') + ' · יום ' + po.day + ' · שבוע ' + po.week : '';
+/* ---------- the photo of a moment: a chart shows the photo nearest to the point under the finger / mouse ---------- */
+const HP = { p: null, at: 0, days: 0, fr: {}, want: 0, tm: null };
+let HOVER_AT = 0;                                            // the last time a chart was touched – the auto refresh waits while someone is looking
+const busyLooking = () => Date.now() - HOVER_AT < 20000;
+function hpLists(t) {
+  const days = Math.min(30, Math.max(7, Math.ceil((Date.now() - t) / DAY) + 1));
+  if (!HP.p || Date.now() - HP.at > 5 * 60000 || days > HP.days) {
+    HP.at = Date.now(); HP.days = days;
+    HP.p = api('action=growphotos&days=' + days + '&w=320').then((j) => {
+      Object.keys(j.lists || {}).forEach((d) => { j.lists[d] = j.lists[d].map((x) => ({ id: x.id, t: Date.parse(x.at) })); });
+      return j;
+    }).catch((e) => { HP.p = null; throw e; });
+  }
+  return HP.p;
+}
+function hpNear(L, t, max) { let b = null, bd = max; (L || []).forEach((x) => { const d = Math.abs(x.t - t); if (d <= bd) { bd = d; b = x; } }); return b; }
+async function hpFrames(ids) {
+  const need = ids.filter((id) => id && !HP.fr[id]);
+  if (need.length) { const j = await apiPost({ action: 'tlframes', w: 480, items: need.map((id) => ({ id })) }); (j.frames || []).forEach((f) => { if (f.b64) HP.fr[f.id] = 'data:image/jpeg;base64,' + f.b64; }); }
+  return ids.map((id) => HP.fr[id] || null);
+}
+/** { src, t } of the photo nearest to t (up to 90 minutes away), both cameras joined when set so */
+async function photoAt(t) {
+  const g = await hpLists(t), cams = g.cams || [], a = hpNear(g.lists[cams[0]], t, 90 * 60000);
+  if (!a) return null;
+  const b = g.stitch && cams[1] ? hpNear(g.lists[cams[1]], a.t, 10 * 60000) : null;
+  const [sa, sb] = await hpFrames([a.id, b && b.id]);
+  if (!sa) return null;
+  if (!sb) return { src: sa, t: a.t };
+  const [A, B] = await Promise.all([loadImg(sa), loadImg(sb)]);
+  return { src: A && B ? joinImages(A, B, g.stitch, A.width) : sa, t: a.t };
+}
+/** shows the photo of time t in a small window over the chart el (on the side away from the finger: side 'l' or 'r') */
+function hoverPhoto(el, t, side) {
+  HOVER_AT = Date.now(); HP.want = t; clearTimeout(HP.tm);
+  let box = el.querySelector('.hpv');
+  if (!box) { box = document.createElement('div'); box.className = 'hpv'; box.innerHTML = '<img alt=""><span></span>'; el.appendChild(box); }
+  box.classList.toggle('l', side === 'l'); box.style.display = '';
+  HP.tm = setTimeout(async () => {
+    try {
+      const p = await photoAt(t); if (HP.want !== t) return;
+      if (!p) { box.querySelector('img').removeAttribute('src'); box.querySelector('span').textContent = 'אין תמונה סמוך לזמן הזה'; box.classList.add('none'); return; }
+      box.classList.remove('none'); box.querySelector('img').src = p.src; box.querySelector('span').textContent = '📷 ' + dm(p.t) + ' ' + hm(p.t);
+      box.onclick = () => lightbox(p.src, dm(p.t) + ' ' + hm(p.t));
+    } catch (e) { box.querySelector('span').textContent = e.message; }
+  }, 180);
+}
+function hidePhoto(el) { clearTimeout(HP.tm); HP.want = 0; const b = el.querySelector('.hpv'); if (b) b.style.display = 'none'; }
 function multiChart(el, o) {
   const W = el.clientWidth || 360, H = o.height || 190, L = 30, R = 8, T = 12, B = 18;
   const X = (t) => L + (t - o.t0) / (o.t1 - o.t0) * (W - L - R);
@@ -277,8 +364,9 @@ function multiChart(el, o) {
     if (!a && !w) return; const x = X((a || w).t);
     cx.setAttribute('x1', x); cx.setAttribute('x2', x); cx.style.display = '';
     if (o.lg) o.lg.innerHTML = legend(a, w ? w.w : null, dm((a || w).t) + ' ' + hm((a || w).t));
+    if (o.photos !== false) hoverPhoto(el, (a || w).t, x > W / 2 ? 'l' : 'r');
   };
-  const out = () => { cx.style.display = 'none'; if (o.lg && o.lgHtml != null) o.lg.innerHTML = o.lgHtml; };
+  const out = () => { cx.style.display = 'none'; hidePhoto(el); if (o.lg && o.lgHtml != null) o.lg.innerHTML = o.lgHtml; };
   // pointer events = mouse, finger and pen alike; a finger may still scroll the page up/down (touch-action: pan-y)
   hit.style.touchAction = 'pan-y'; let outT;
   const go = (ev) => { clearTimeout(outT); mv(ev); };
@@ -321,7 +409,7 @@ function openMetric(key, ph) {
     $('mxV').innerHTML = '<b>' + fmt(last[1], M.d) + '</b> ' + M.unit + ' <span class="muted small">' + dm(last[0]) + ' ' + hm(last[0]) + (Date.now() - last[0] > 30 * 60000 ? ' · ⚠ ' + ago(last[0]) : '') + '</span>';
     chart($('mxC'), { t0, t1, height: Math.min(360, Math.max(220, window.innerHeight * 0.4)), yl: { min: lo, max: hi, fmt: (x) => fmt(x, M.d) }, bands: b ? [[b[0], b[1], 'color-mix(in srgb, var(--green) 14%, transparent)']] : [],
       series: [{ pts: P2, color: M.color, gap: 40 * 60000, width: 2 }],
-      onHover: (t) => { let best = null, bd = Infinity; P2.forEach((p) => { const d = Math.abs(p[0] - t); if (d < bd) { bd = d; best = p; } }); if (!best) return null; $('mxV').innerHTML = '<b>' + fmt(best[1], M.d) + '</b> ' + M.unit + ' <span class="muted small">' + dm(best[0]) + ' ' + hm(best[0]) + '</span>'; return { t: best[0], v: best[1] }; } });
+      onHover: (t) => { let best = null, bd = Infinity; P2.forEach((p) => { const d = Math.abs(p[0] - t); if (d < bd) { bd = d; best = p; } }); if (!best) return null; $('mxV').innerHTML = '<b>' + fmt(best[1], M.d) + '</b> ' + M.unit + ' <span class="muted small">' + dm(best[0]) + ' ' + hm(best[0]) + '</span>'; return { t: best[0], v: best[1] }; }, photos: true });
     const inB = b ? v.filter((x) => x >= b[0] && x <= b[1]).length / v.length * 100 : null;
     $('mxS').innerHTML = [['מינימום', fmt(mn, M.d)], ['ממוצע', fmt(avg, M.d)], ['מקסימום', fmt(mx, M.d)]].concat(inB != null ? [['בטווח היעד', fmt(inB) + '%']] : []).concat([['מדידות', v.length]]).map((x) => '<div><small>' + x[0] + '</small><b>' + x[1] + '</b></div>').join('');
   };
