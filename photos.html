@@ -19,7 +19,7 @@
 </header>
 
 <main class="wrap grid">
-  <div class="seg" id="tabs" style="justify-self:start"><button data-t="at" class="on">תמונה לפי זמן</button><button data-t="tl">טיימלאפס</button></div>
+  <div class="seg" id="tabs" style="justify-self:start"><button data-t="at" class="on">תמונה לפי זמן</button><button data-t="tl">טיימלאפס</button><button data-t="gr">🌱 התפתחות</button></div>
 
   <!-- one photo at a chosen time -->
   <section class="card" id="secAt">
@@ -65,6 +65,36 @@
       <button class="btn" id="tRec">⬇ הורד סרטון</button>
     </div>
   </section>
+  <!-- growth index: green cover per grid cell, day against the day before -->
+  <section class="card" id="secGr" hidden>
+    <div class="form">
+      <label>מתאריך<input type="date" id="gFrom"></label>
+      <label>עד<input type="date" id="gTo"></label>
+      <label>מצלמה<select class="cam" id="gCam"></select></label>
+      <label>משעה<input type="time" id="gH0" value="10:00" step="900"></label>
+      <label>עד שעה<input type="time" id="gH1" value="15:00" step="900"></label>
+      <label>גריד<select id="gN"><option value="3">3×3</option><option value="6" selected>6×6</option><option value="10">10×10</option></select></label>
+      <button class="btn primary" id="gGo">חשב</button>
+    </div>
+    <div class="muted small" style="margin-top:6px">כל יום נמדד מכמה תמונות באותן שעות (אותה זווית אור ועלים), ולוקחים את החציון – כך תמונה אחת חריגה לא מזיזה את המדד. משווים כל יום ליום שלפניו.</div>
+    <div class="muted small" id="gMsg" style="margin-top:8px"></div>
+    <div id="gOut" hidden>
+      <div class="tiles" id="gTiles" style="margin-top:12px"></div>
+      <div class="form" style="margin-top:12px">
+        <label>יום<select id="gDay"></select></label>
+        <div class="seg" id="gMode"><button data-m="rgr" class="on">צמיחה מאתמול</button><button data-m="cov">כיסוי</button><button data-m="mask">מה נספר כצמח</button></div>
+      </div>
+      <div class="photo" style="margin-top:10px"><canvas id="gCv" style="width:100%;display:block;cursor:pointer"></canvas></div>
+      <div class="muted small" style="margin-top:6px" id="gLeg"></div>
+      <div class="form" style="margin-top:8px">
+        <label style="flex:1 1 220px">רגישות לירוק <input type="range" id="gT" min="5" max="60" value="20"></label>
+        <span class="muted small" style="flex:1 1 100%">ב"מה נספר כצמח" הצמחים צבועים בוורוד. אם נספר גם רקע ירוק – הזז ימינה; אם עלים חסרים – שמאלה. לחיצה על משבצת מוציאה אותה מהחישוב (מגש ירוק, שלט, משבצת בלי צמחים).</span>
+      </div>
+      <h3 style="margin:16px 0 6px">כיסוי וצמיחה יומית</h3>
+      <div class="chart" id="gChart"></div>
+      <div style="overflow-x:auto;margin-top:10px"><table class="gtab" id="gTab"></table></div>
+    </div>
+  </section>
   <div class="msg" id="msg"></div>
 </main>
 
@@ -79,9 +109,9 @@ const err = (e) => { $('msg').textContent = e.message || String(e); $('msg').cla
 /* ---------- tabs ---------- */
 $('tabs').querySelectorAll('button').forEach((b) => b.onclick = () => {
   $('tabs').querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b));
-  $('secAt').hidden = b.dataset.t !== 'at'; $('secTl').hidden = b.dataset.t !== 'tl'; store.set('photosTab', b.dataset.t);
+  $('secAt').hidden = b.dataset.t !== 'at'; $('secTl').hidden = b.dataset.t !== 'tl'; $('secGr').hidden = b.dataset.t !== 'gr'; store.set('photosTab', b.dataset.t);
 });
-if (store.get('photosTab') === 'tl') $('tabs').querySelectorAll('button')[1].click();
+{ const t = store.get('photosTab'), b = t && $('tabs').querySelector('[data-t="' + t + '"]'); if (b && t !== 'at') b.click(); }
 
 /* ---------- photo lists (the server lists the photos of one camera between two dates) ---------- */
 async function camList(dev, from, to, hour) {
@@ -307,6 +337,133 @@ $('tRec').onclick = () => {
 };
 function finishRec() { const r = S.rec; S.rec = null; setTimeout(() => r.stop(), 1000 / +$('tFps').value); }
 
+/* ---------- growth index (veg): how much of every grid cell is plant, and how much that grew since the day before ----------
+   A pixel is plant when it is clearly greener than red and blue (excess green 2G−R−B above the sensitivity) and not dark.
+   Every day: up to 5 lit photos inside the chosen hours → the median per cell. Growth = today's cover / yesterday's cover.
+   Being a ratio, it needs no calibration to cm² and an angled camera does not matter (each cell is compared with itself). */
+const GI = { cache: store.get('giCache') || {}, res: null, mode: 'rgr', day: null };
+const giEx = (n) => (store.get('giEx') || {})[n] || [];
+function giSetEx(n, L) { const all = store.get('giEx') || {}; all[n] = L; store.set('giEx', all); }
+const isPlant = (r, g, b, T) => 2 * g - r - b > T && g > 35;
+function coverCells(im, n, T) {
+  const W = Math.min(800, im.width), H = Math.max(1, Math.round(W * im.height / im.width)), c = document.createElement('canvas'); c.width = W; c.height = H;
+  const x = c.getContext('2d'); x.drawImage(im, 0, 0, W, H); const d = x.getImageData(0, 0, W, H).data, cnt = new Array(n * n).fill(0), tot = new Array(n * n).fill(0);
+  for (let y = 0; y < H; y++) { const cy = Math.min(n - 1, Math.floor(y * n / H)) * n; for (let xx = 0; xx < W; xx++) { const i = (y * W + xx) * 4, k = cy + Math.min(n - 1, Math.floor(xx * n / W)); tot[k]++; if (isPlant(d[i], d[i + 1], d[i + 2], T)) cnt[k]++; } }
+  return cnt.map((v, k) => Math.round(v / tot[k] * 10000) / 100);
+}
+const median = (a) => { const v = a.filter((x) => x != null && isFinite(x)).sort((p, q) => p - q); if (!v.length) return null; const m = v.length >> 1; return v.length % 2 ? v[m] : (v[m - 1] + v[m]) / 2; };
+const growPct = (a, b, days) => a != null && b != null && a >= 0.5 && b >= 0.5 ? (Math.pow(a / b, 1 / (days || 1)) - 1) * 100 : null;
+function giKeep() { const k = Object.keys(GI.cache); if (k.length > 3000) k.slice(0, k.length - 3000).forEach((x) => delete GI.cache[x]); store.set('giCache', GI.cache); }
+
+async function loadGi() {
+  $('msg').textContent = '';
+  const from = $('gFrom').value, to = $('gTo').value, n = +$('gN').value, T = +$('gT').value, cam = $('gCam').value;
+  if (!from || !to || from > to) { $('gMsg').textContent = 'בדוק את התאריכים'; return; }
+  store.set('giForm', { h0: $('gH0').value, h1: $('gH1').value, n, T });
+  $('gMsg').textContent = 'מחפש תמונות…';
+  try {
+    const t0 = new Date(from + 'T00:00:00').getTime(), envP = growAround(t0).catch(() => null);
+    const h0 = hhmm($('gH0').value), h1 = hhmm($('gH1').value);
+    const list = (await items(cam, from, to, null)).filter((p) => inHours(p.t, h0, h1));
+    if (!list.length) { $('gMsg').textContent = 'אין תמונות בשעות האלה בטווח הזה'; return; }
+    const byDay = {}; list.forEach((p) => (byDay[dayKey(p.t)] = byDay[dayKey(p.t)] || []).push(p));
+    const pick = []; Object.keys(byDay).sort().forEach((d) => { const L = byDay[d], k = Math.min(5, L.length); for (let i = 0; i < k; i++) pick.push(L[Math.floor((i + .5) * L.length / k)]); });
+    const key = (p) => p.id + (p.id2 ? '+' + p.id2 : '') + '|' + n + '|' + T;
+    const need = pick.filter((p) => !GI.cache[key(p)]);
+    if (need.length) await frames(need.flatMap((p) => p.id2 ? [p.id, p.id2] : [p.id]), 640, (a, m) => { $('gMsg').textContent = 'טוען תמונות ' + a + ' / ' + m; });
+    let done = 0;
+    for (const p of need) {
+      const im = await loadImg(await srcOf(p, 640)); done++;
+      if (done % 5 === 0) $('gMsg').textContent = 'מנתח ' + done + ' / ' + need.length;
+      GI.cache[key(p)] = im && lumOf(im) >= 25 ? coverCells(im, n, T) : 'dark';
+    }
+    giKeep();
+    const g = await envP, days = [];
+    Object.keys(byDay).sort().forEach((d) => {
+      const C = pick.filter((p) => dayKey(p.t) === d).map((p) => GI.cache[key(p)]).filter((c) => Array.isArray(c));
+      if (!C.length) return;
+      const cells = C[0].map((_, k) => median(C.map((c) => c[k])));
+      const t = new Date(d + 'T12:00:00').getTime(), air = g ? g.P.air.filter((a) => dayKey(a.t) === d && inHours(a.t, 0, 24)) : [];
+      const lit = air.filter((a) => inHours(a.t, h0, h1));
+      const avg = (L, f) => L.length ? L.reduce((s2, a) => s2 + f(a), 0) / L.length : null;
+      days.push({ d, t, cells, n: C.length, photo: pick.filter((p) => dayKey(p.t) === d).slice(-1)[0], temp: avg(air, (a) => a.temp), rh: avg(air, (a) => a.rh), vpd: avg(lit.length ? lit : air, (a) => a.vpd), po: g ? phaseOf(g.cycle, t) : null });
+    });
+    if (!days.length) { $('gMsg').textContent = 'כל התמונות בשעות האלה חשוכות – בחר שעות שבהן האור דולק'; return; }
+    GI.res = { days, n, T }; GI.day = days[days.length - 1].d;
+    $('gDay').innerHTML = days.map((x) => '<option value="' + x.d + '">' + dm(x.t) + (x.po ? ' · ' + x.po.stage.name + ' יום ' + x.po.day : '') + '</option>').join(''); $('gDay').value = GI.day;
+    $('gMsg').textContent = days.length + ' ימים · ' + pick.length + ' תמונות';
+    $('gOut').hidden = false; giSummary(); await giDraw();
+  } catch (e) { err(e); $('gMsg').textContent = ''; }
+}
+/* totals per day without the excluded cells, growth from the day before (per day when a day is missing) */
+function giCalc() {
+  const R = GI.res, ex = giEx(R.n), use = (k) => !ex.includes(k);
+  R.days.forEach((x, i) => {
+    x.tot = x.cells.reduce((a, v, k) => use(k) ? a + v : a, 0) / Math.max(1, x.cells.filter((_, k) => use(k)).length);
+    const pv = R.days[i - 1], gap = pv ? Math.round((x.t - pv.t) / DAY) : 0;
+    x.g = pv ? growPct(x.tot, pv.tot, gap) : null;
+    x.cg = x.cells.map((v, k) => pv && use(k) ? growPct(v, pv.cells[k], gap) : null);
+    const mg = median(x.cg); x.mg = mg;
+    x.slow = mg == null ? [] : x.cg.map((v, k) => v != null && v < mg - Math.max(5, Math.abs(mg) * .5) ? k : -1).filter((k) => k >= 0);
+  });
+}
+function giSummary() {
+  giCalc();
+  const D = GI.res.days, x = D[D.length - 1], last3 = D.slice(-3).map((y) => y.g).filter((v) => v != null);
+  const a3 = last3.length ? last3.reduce((a, b) => a + b, 0) / last3.length : null, sg = (v) => v == null ? '—' : (v > 0 ? '+' : '') + fmt(v, 1);
+  const prev3 = D.slice(-6, -3).map((y) => y.g).filter((v) => v != null), p3 = prev3.length ? prev3.reduce((a, b) => a + b, 0) / prev3.length : null;
+  $('gTiles').innerHTML = [
+    tile('כיסוי ירוק', fmt(x.tot, 1), '%', dm(x.t) + (x.po ? ' · ' + x.po.stage.name + ' יום ' + x.po.day : '')),
+    tile('צמיחה מאתמול', sg(x.g), '%', x.g == null ? 'צריך גם את היום שלפני' : 'כיסוי ' + fmt(D[D.length - 2] ? D[D.length - 2].tot : null, 1) + '% → ' + fmt(x.tot, 1) + '%', x.g == null ? '' : x.g < 0 ? 'bad' : ''),
+    tile('ממוצע 3 ימים', sg(a3), '%/יום', p3 != null && a3 != null ? (a3 < p3 - 2 ? '↓ מאט – לפני כן ' + sg(p3) + '%' : a3 > p3 + 2 ? '↑ מאיץ – לפני כן ' + sg(p3) + '%' : 'יציב · לפני כן ' + sg(p3) + '%') : ''),
+    tile('משבצות מפגרות', x.slow.length, '', x.slow.length ? 'צומחות הרבה פחות מהחציון (' + sg(x.mg) + '%)' : x.mg != null ? 'כל המשבצות צומחות דומה' : '', x.slow.length ? 'warn' : ''),
+  ].join('');
+  const C = D.filter((y) => y.tot != null), G = D.filter((y) => y.g != null), mx = Math.max(5, ...C.map((y) => y.tot)), gv = G.map((y) => y.g);
+  const t0 = D[0].t - DAY / 2, t1 = D[D.length - 1].t + DAY / 2;
+  chart($('gChart'), { t0, t1, height: 200, tip: true, yl: { min: 0, max: mx * 1.1, fmt: (v) => fmt(v) + '%' }, yr: { min: Math.min(0, ...gv) * 1.2, max: Math.max(5, ...gv) * 1.2, fmt: (v) => fmt(v) + '%' },
+    series: [{ pts: G.map((y) => [y.t - DAY * .3, y.g]), color: 'var(--amber)', axis: 'r', bars: DAY * .6 }, { pts: C.map((y) => [y.t, y.tot]), color: 'var(--green)', width: 2.4 }],
+    onHover: (t) => { let b = D[0]; D.forEach((y) => { if (Math.abs(y.t - t) < Math.abs(b.t - t)) b = y; }); return { t: b.t, v: b.tot, html: '<b>' + dm(b.t) + '</b><br>כיסוי <span class="num">' + fmt(b.tot, 1) + '%</span> · צמיחה <span class="num">' + sg(b.g) + '%</span>' + (b.vpd != null ? '<br>VPD <span class="num">' + fmt(b.vpd, 2) + '</span> · ' + fmt(b.temp, 1) + '°' : '') }; },
+    onClick: (t) => { let b = D[0]; D.forEach((y) => { if (Math.abs(y.t - t) < Math.abs(b.t - t)) b = y; }); GI.day = b.d; $('gDay').value = b.d; giDraw(); } });
+  $('gTab').innerHTML = '<tr><th>יום</th><th>שלב</th><th>כיסוי</th><th>צמיחה</th><th>מפגרות</th><th>טמפ׳</th><th>לחות</th><th>VPD</th><th>תמונות</th></tr>' +
+    D.slice().reverse().map((y) => '<tr><td>' + dm(y.t) + '</td><td>' + (y.po ? y.po.stage.name + ' ' + y.po.day : '') + '</td><td>' + fmt(y.tot, 1) + '%</td><td class="' + (y.g != null && y.g < 0 ? 'neg' : '') + '">' + sg(y.g) + (y.g != null ? '%' : '') + '</td><td>' + (y.slow.length || '') + '</td><td>' + fmt(y.temp, 1) + '</td><td>' + fmt(y.rh) + '</td><td>' + fmt(y.vpd, 2) + '</td><td>' + y.n + '</td></tr>').join('');
+}
+async function giDraw() {
+  const R = GI.res; if (!R) return;
+  const x = R.days.find((y) => y.d === GI.day) || R.days[R.days.length - 1], n = R.n, ex = giEx(n);
+  const im = await loadImg(await srcOf(x.photo, 640)); if (!im) return;
+  const cv = $('gCv'), c = cv.getContext('2d'), W = cv.width = im.width, H = cv.height = im.height, cw = W / n, ch = H / n, fs = Math.max(10, Math.round(cw / 5));
+  c.drawImage(im, 0, 0);
+  if (GI.mode === 'mask') {
+    const d = c.getImageData(0, 0, W, H), a = d.data;
+    for (let i = 0; i < a.length; i += 4) if (isPlant(a[i], a[i + 1], a[i + 2], R.T)) { a[i] = 255; a[i + 1] = 0; a[i + 2] = 200; } else { a[i] *= .45; a[i + 1] *= .45; a[i + 2] *= .45; }
+    c.putImageData(d, 0, 0);
+  }
+  const mg = x.mg;
+  for (let k = 0; k < n * n; k++) {
+    const cx = (k % n) * cw, cy = Math.floor(k / n) * ch;
+    if (ex.includes(k)) { c.fillStyle = 'rgba(0,0,0,.6)'; c.fillRect(cx, cy, cw, ch); c.strokeStyle = 'rgba(255,255,255,.35)'; c.beginPath(); c.moveTo(cx, cy); c.lineTo(cx + cw, cy + ch); c.stroke(); continue; }
+    if (GI.mode === 'rgr') { const v = x.cg[k]; c.fillStyle = v == null ? 'rgba(0,0,0,0)' : x.slow.includes(k) ? 'rgba(255,90,90,.38)' : mg != null && v < mg - Math.max(3, Math.abs(mg) * .25) ? 'rgba(245,185,66,.3)' : 'rgba(61,220,151,.22)'; c.fillRect(cx, cy, cw, ch); }
+    if (GI.mode === 'cov') { const v = x.cells[k]; c.fillStyle = 'rgba(61,220,151,' + Math.min(.6, v / 100) + ')'; c.fillRect(cx, cy, cw, ch); }
+    const txt = GI.mode === 'cov' || GI.mode === 'mask' ? fmt(x.cells[k], 0) + '%' : x.cg[k] == null ? (x.cells[k] < 0.5 ? '' : '·') : (x.cg[k] > 0 ? '+' : '') + fmt(x.cg[k], 0) + '%';
+    if (txt) { c.font = '800 ' + fs + 'px Heebo, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.direction = 'ltr'; c.lineWidth = 3; c.strokeStyle = 'rgba(0,0,0,.7)'; c.strokeText(txt, cx + cw / 2, cy + ch / 2); c.fillStyle = '#fff'; c.fillText(txt, cx + cw / 2, cy + ch / 2); }
+  }
+  c.strokeStyle = 'rgba(255,255,255,.4)'; c.lineWidth = 1; c.beginPath(); for (let i = 1; i < n; i++) { c.moveTo(i * cw, 0); c.lineTo(i * cw, H); c.moveTo(0, i * ch); c.lineTo(W, i * ch); } c.stroke();
+  $('gLeg').innerHTML = GI.mode === 'rgr' ? '🟩 צומחת כרגיל · 🟨 קצת מתחת לחציון · 🟥 מפגרת (הרבה מתחת לחציון ' + (mg != null ? (mg > 0 ? '+' : '') + fmt(mg, 1) + '%' : '') + ') · "·" = אין עם מה להשוות. התמונה: ' + dm(x.photo.t) + ' ' + hm(x.photo.t)
+    : GI.mode === 'cov' ? 'כמה אחוז מכל משבצת הוא צמח (חציון של ' + x.n + ' תמונות ביום הזה)' : 'ורוד = נספר כצמח. כוון את הרגישות עד שרק העלים ורודים, ולחץ "חשב" מחדש.';
+}
+$('gGo').onclick = loadGi;
+$('gDay').onchange = () => { GI.day = $('gDay').value; giDraw(); };
+$('gMode').querySelectorAll('button').forEach((b) => b.onclick = () => { $('gMode').querySelectorAll('button').forEach((y) => y.classList.toggle('on', y === b)); GI.mode = b.dataset.m; giDraw(); });
+$('gT').oninput = () => { if (GI.res && GI.mode === 'mask') { GI.res.T = +$('gT').value; giDraw(); } };
+$('gT').onchange = () => { $('gMsg').textContent = 'הרגישות השתנתה – לחץ "חשב" כדי לחשב מחדש עם הרגישות הזו'; };
+$('gCv').onclick = (e) => {
+  const R = GI.res; if (!R) return; const r = $('gCv').getBoundingClientRect(), n = R.n;
+  const k = Math.min(n - 1, Math.floor((e.clientY - r.top) / r.height * n)) * n + Math.min(n - 1, Math.floor((e.clientX - r.left) / r.width * n));
+  const L = giEx(n), i = L.indexOf(k); if (i >= 0) L.splice(i, 1); else L.push(k); giSetEx(n, L);
+  giSummary(); giDraw();
+};
+(() => { const f = store.get('giForm'); if (f) { $('gH0').value = f.h0 || '10:00'; $('gH1').value = f.h1 || '15:00'; $('gN').value = String(f.n || 6); $('gT').value = f.T || 20; } })();
+
 /* ---------- live: today's photo follows the newest one, and the readings are read again (every minute) ---------- */
 async function live() {
   if (document.hidden || $('secAt').hidden || !$('aLive').checked || $('aDate').value !== dayKey(Date.now())) return;
@@ -327,6 +484,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) live
 async function init() {
   $('aDate').value = today; $('aTime').value = String(new Date().getHours()).padStart(2, '0') + ':00';
   $('tTo').value = today; $('tFrom').value = cycle.start || dayKey(Date.now() - 14 * DAY);
+  { const g = stageDates(cycle).grow, f = stageDates(cycle).flower; $('gTo').value = today; $('gFrom').value = g && g <= today && !(f && f <= today) ? g : dayKey(Date.now() - 10 * DAY); }
   try {
     const [gp, pl] = await Promise.all([api('action=growphotos&days=1'), api('action=photolist&from=' + today + '&to=' + today)]);
     // every camera that has photos; the joined picture uses the alignment saved in the admin page, or simply camera 1 above camera 2
