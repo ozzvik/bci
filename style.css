@@ -256,3 +256,15 @@ body.np-open { padding-bottom: 330px; }
 
 .lay-off { display: none !important; }
 .chip.miss { background: color-mix(in srgb, var(--amber) 30%, rgba(0,0,0,.5)) !important; }
+/* the photo of the moment under the finger, over a chart */
+.hpv { position: absolute; top: 4px; right: 6px; width: min(42%, 260px); border-radius: 10px; overflow: hidden; background: #000; border: 1px solid var(--line); box-shadow: 0 6px 22px rgba(0,0,0,.45); z-index: 5; cursor: zoom-in; }
+.hpv.l { right: auto; left: 34px; }
+.hpv img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: #111; }
+.hpv span { position: absolute; bottom: 0; inset-inline: 0; padding: 3px 7px; font-size: calc(11px * var(--fs, 1)); font-weight: 600; color: #fff; background: linear-gradient(transparent, rgba(0,0,0,.75)); direction: ltr; text-align: left; }
+.hpv.none img { aspect-ratio: 4 / 1; }
+.hpv.none span { position: static; background: none; color: var(--muted); direction: rtl; text-align: right; }
+/* a grid over a photo (thirds + finer lines), to compare plant height and spread between days */
+.photo { position: relative; }
+.gridov { position: absolute; inset: 0; pointer-events: none; background-image: linear-gradient(to right, rgba(255,255,255,.28) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,.28) 1px, transparent 1px); }
+.gridov { inset: auto; border: 1px solid rgba(255,255,255,.28); border-top: 0; border-left: 0; box-sizing: border-box; }
+.form .chk { flex-direction: row; align-items: center; gap: 6px; padding-bottom: 9px; }
