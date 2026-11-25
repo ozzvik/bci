@@ -168,7 +168,7 @@ links();
 $('refresh').onclick = loadAll;
 loadAll();
 let rz, lastW = window.innerWidth; window.addEventListener('resize', () => { if (window.innerWidth === lastW) return; lastW = window.innerWidth; clearTimeout(rz); rz = setTimeout(() => { if (S.grow) renderGrow(S.grow); }, 200); });
-setInterval(() => { if (!document.hidden) loadAll(); }, 5 * 60000);
+liveRefresh(() => !document.hidden, loadAll);   // every minute, and at once when the app comes back to the screen
 </script>
 </body>
 </html>
