@@ -68,7 +68,7 @@ async function loadAll() {
 }
 $('refresh').onclick = loadAll;
 loadAll();
-setInterval(() => { if (!document.hidden) loadAll(); }, 5 * 60000);
+liveRefresh(() => !document.hidden, loadAll);   // every minute, and at once when the app comes back to the screen
 </script>
 </body>
 </html>
