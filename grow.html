@@ -110,7 +110,7 @@ function charts() {
     const vals = pts.map((p) => p.w).concat(lims.map((x) => x[1]).filter((v) => v != null), fulls.map((x) => x[1]));
     let mn = Math.min(...vals), mx = Math.max(...vals); const pad = Math.max(20, (mx - mn) * .08); mn -= pad; mx += pad;
     const fn = pts[pts.length - 1].full || mx;
-    chart($('wChart'), { t0, t1, height: 250, tip: true, yl: { min: mn, max: mx, fmt: (v) => fmt(v / 1000, 2) + 'k' }, yr: { min: (1 - mn / fn) * 100, max: (1 - mx / fn) * 100, fmt: (v) => v < -.01 ? '' : fmt(v) + '%' },
+    chart($('wChart'), { t0, t1, height: 250, tip: true, photos: true, yl: { min: mn, max: mx, fmt: (v) => fmt(v / 1000, 2) + 'k' }, yr: { min: (1 - mn / fn) * 100, max: (1 - mx / fn) * 100, fmt: (v) => v < -.01 ? '' : fmt(v) + '%' },
       series: [{ pts: lims, color: 'var(--amber)', dash: '5 4', step: true, width: 1.3 }, { pts: fulls, color: 'var(--muted)', dash: '2 4', step: true, width: 1.2 }, { pts: pts.map((p) => [p.t, p.w]), color: 'var(--green)', width: 2.2, fill: true, gap: 40 * 60000 }],
       markers: A.ev.filter((e) => e.t >= t0).map((e) => ({ t: e.t, color: 'var(--blue)' })),
       onHover: (t) => { let b = pts[0]; for (const p of pts) if (Math.abs(p.t - t) < Math.abs(b.t - t)) b = p; return { t: b.t, v: b.w, html: '<b>' + dm(b.t) + ' ' + hm(b.t) + '</b><br><span class="num">' + fmt(b.w) + ' g</span> · ייבוש <span class="num">' + fmt(b.db, 1) + '%</span>' }; },
@@ -127,11 +127,11 @@ function charts() {
     const [tl, th] = pad(Math.min(...tv), Math.max(...tv), 1), [hl, hh] = pad(Math.min(...hv), Math.max(...hv), 3);
     const near = (t) => { let b = air[0]; for (const p of air) if (Math.abs(p.t - t) < Math.abs(b.t - t)) b = p; return b; };
     const tipA = (b) => '<b>' + dm(b.t) + ' ' + hm(b.t) + '</b><br><span class="num">' + fmt(b.temp, 1) + '°C · ' + fmt(b.rh) + '% · VPD ' + fmt(b.vpd, 2) + '</span>';
-    chart($('aChart'), { t0, t1, height: 190, tip: true, yl: { min: tl, max: th, fmt: (v) => fmt(v) + '°' }, yr: { min: hl, max: hh, fmt: (v) => fmt(v) + '%' },
+    chart($('aChart'), { t0, t1, height: 190, tip: true, photos: true, yl: { min: tl, max: th, fmt: (v) => fmt(v) + '°' }, yr: { min: hl, max: hh, fmt: (v) => fmt(v) + '%' },
       series: [{ pts: air.map((p) => [p.t, p.rh]), color: 'var(--blue)', axis: 'r', gap: 40 * 60000 }, { pts: air.map((p) => [p.t, p.temp]), color: 'var(--amber)', width: 2.2, gap: 40 * 60000 }],
       onHover: (t) => { const b = near(t); return { t: b.t, v: b.temp, html: tipA(b) }; }, onClick: (t) => showAt(t) });
     const vl = Math.max(0, Math.min(.6, ...vv) - .1), vh = Math.max(1.8, ...vv) + .1;
-    chart($('vChart'), { t0, t1, height: 130, tip: true, yl: { min: vl, max: vh, fmt: (v) => fmt(v, 1) }, bands: [[.8, 1.5, 'color-mix(in srgb, var(--green) 12%, transparent)']],
+    chart($('vChart'), { t0, t1, height: 130, tip: true, photos: true, yl: { min: vl, max: vh, fmt: (v) => fmt(v, 1) }, bands: [[.8, 1.5, 'color-mix(in srgb, var(--green) 12%, transparent)']],
       series: [{ pts: air.map((p) => [p.t, p.vpd]), color: 'var(--green)', width: 2.2, gap: 40 * 60000 }],
       onHover: (t) => { const b = near(t); return { t: b.t, v: b.vpd, html: tipA(b) }; } });
   }
@@ -198,9 +198,8 @@ async function loadAll() {
 $('range').querySelectorAll('button').forEach((b) => { b.classList.toggle('on', +b.dataset.d === G.range); b.onclick = () => { G.range = +b.dataset.d; store.set('range', G.range); $('range').querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b)); if (Math.max(G.range, 3) + 1 > (G.loaded || 0)) loadAll(); else { render(); } }; });
 $('refresh').onclick = loadAll;
 let rt; window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(charts, 200); });
-document.addEventListener('visibilitychange', () => { if (!document.hidden && G.grow && Date.now() - Date.parse(G.grow.now || 0) > 5 * 60000) loadAll(); });
 loadAll();
-setInterval(() => { if (!document.hidden) loadAll(); }, 5 * 60000);
+liveRefresh(() => !document.hidden, loadAll);   // every minute, and at once when the app comes back to the screen
 </script>
 </body>
 </html>
