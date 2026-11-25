@@ -40,6 +40,15 @@
   .dayc .sn { font-size: calc(26px * var(--fs, 1)); font-weight: 800; }
   .dayc .dn { font-size: calc(26px * var(--fs, 1)); font-weight: 800; color: var(--accent); }
   .dayc .wn { font-size: calc(18px * var(--fs, 1)); font-weight: 700; color: var(--muted); }
+  .dayc .shb { margin-inline-start: auto; background: none; border: 1px solid var(--line); color: var(--accent); border-radius: 20px; padding: 4px 12px; font: inherit; font-size: calc(12.5px * var(--fs, 1)); font-weight: 700; cursor: pointer; }
+  .shift { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; margin: 0 0 12px; }
+  .shift h3 { margin: 0 0 8px; font-size: calc(15px * var(--fs, 1)); }
+  .shift .steps { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
+  .shift .steps button { min-width: 46px; }
+  .shift table { width: 100%; border-collapse: collapse; font-size: calc(13px * var(--fs, 1)); margin-top: 6px; }
+  .shift td { padding: 5px 4px; border-top: 1px solid var(--line); }
+  .shift td.n { font-weight: 700; } .shift td.d { direction: ltr; text-align: end; font-variant-numeric: tabular-nums; }
+  .shift .chg { color: var(--amber); font-weight: 700; } .shift .old { color: var(--muted); text-decoration: line-through; font-weight: 400; margin-inline-end: 6px; }
   .dayc .sp { font-size: calc(13px * var(--fs, 1)); font-weight: 700; padding: 3px 10px; border-radius: 20px; background: color-mix(in srgb, var(--green) 14%, transparent); color: var(--green); }
   .nosens { color: var(--muted); font-size: calc(13.5px * var(--fs, 1)); }
   .ck { display: flex !important; flex-direction: row !important; gap: 8px; align-items: center; } .ck input { width: auto !important; }
@@ -77,6 +86,7 @@
 
   <div id="main" hidden>
     <div class="dayc" id="dayc"></div>
+    <div class="shift" id="shift" hidden></div>
     <div class="phasebar scroll" id="phases"></div>
     <div class="kp" id="live" style="--n:6;margin-bottom:12px"></div>
     <div class="room nosens" id="nosens" hidden>📡 האצווה הזו לא בחדר עם החיישנים – אין מדידות חיות. <a href="#" id="toSens" style="color:var(--accent)">לאצווה שבחדר החיישנים ‹</a></div>
@@ -175,7 +185,7 @@ function render() {
   $('main').hidden = false;
   const ph = po.ph, week = po.week;
   $('sub').textContent = (T && T.room ? T.room + ' · ' : '') + po.stage.name + ' מ-' + po.dates[po.stage.id].slice(8) + '.' + po.dates[po.stage.id].slice(5, 7);
-  $('dayc').innerHTML = '<span class="sn">' + po.stage.name + '</span><span class="dn">יום ' + po.day + '</span><span class="wn">שבוע ' + week + '</span>' + (po.stage.id === 'flower' ? '<span class="sp">' + esc(ph.name) + '</span>' : '');
+  $('dayc').innerHTML = '<span class="sn">' + po.stage.name + '</span><span class="dn">יום ' + po.day + '</span><span class="wn">שבוע ' + week + '</span>' + (po.stage.id === 'flower' ? '<span class="sp">' + esc(ph.name) + '</span>' : '') + '<button class="shb" onclick="openShift()">📅 שינוי תאריכי שלבים</button>';
   PH = ph; if (!VIEW) VIEW = ph;
   $('pill').textContent = po.stage.id === 'flower' ? ph.en : po.stage.en; $('pill').hidden = false;
   // the bar: rooting · veg · the sub-phases of flowering · drying
@@ -284,6 +294,50 @@ async function photo(P) {
   const a = near(P.air, () => true), w = near(P.A.pts, (p) => p.w != null), ch = (k, v, c) => '<span class="chip' + (c ? ' ' + c : '') + '"><span>' + k + '</span>' + v + '</span>';
   $('photo').innerHTML = '<img src="' + n.src + '" alt=""><div class="ov">' + ch('🕒', hm(tp) + ' · ' + ago(tp)) + (a ? ch('T', fmt(a.temp, 1) + '°') + ch('RH', fmt(a.rh) + '%') + ch('VPD', fmt(a.vpd, 2)) : ch('⚠', 'חסרים נתוני סביבה', 'miss')) + (w ? ch('⚖', fmt(w.w) + ' g') : '') + '</div>';
   $('photo').querySelector('img').onclick = () => lightbox(n.src, dm(Date.parse(n.at)) + ' ' + hm(Date.parse(n.at)));
+}
+
+/* ---------- moving the stages: e.g. a few more days of veg = flowering and drying start that much later ---------- */
+let SHIFT = null;                                            // { st: the stage that gets longer / shorter, n: days, D: the dates now }
+const addDays = (s, n) => dayKey(new Date(s + 'T12:00:00').getTime() + n * DAY);
+const ddmy = (s) => s ? s.slice(8, 10) + '.' + s.slice(5, 7) + '.' + s.slice(2, 4) : '—';
+function shiftDates() {
+  const D = SHIFT.D, out = Object.assign({}, D), i = STAGE_IDS.indexOf(SHIFT.st);
+  STAGE_IDS.slice(i + 1).forEach((k) => { if (D[k]) out[k] = addDays(D[k], SHIFT.n); });
+  return out;
+}
+function openShift() {
+  if (!T) return say('הנתונים עוד נטענים – נסה שוב בעוד רגע', true);
+  const D = stageDates(CY()), po = phaseOf(CY(), Date.now());
+  SHIFT = { st: po ? po.stage.id : STAGE_IDS.find((k) => D[k]), n: 0, D };
+  drawShift(); $('shift').hidden = false; $('shift').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+function drawShift() {
+  const D = SHIFT.D, N = shiftDates(), i = STAGE_IDS.indexOf(SHIFT.st), next = STAGE_IDS.slice(i + 1).find((k) => D[k]);
+  const len = (A, k) => { const j = STAGE_IDS.indexOf(k), nx = STAGE_IDS.slice(j + 1).find((x) => A[x]); return A[k] && nx ? Math.round((new Date(A[nx] + 'T12:00:00') - new Date(A[k] + 'T12:00:00')) / DAY) : null; };
+  const opts = STAGE_IDS.filter((k) => D[k] && k !== 'dry').map((k) => '<option value="' + k + '"' + (k === SHIFT.st ? ' selected' : '') + '>' + stageById(k).name + '</option>').join('');
+  const today = dayKey(Date.now()), toToday = next ? Math.round((new Date(today + 'T12:00:00') - new Date(D[next] + 'T12:00:00')) / DAY) : 0;
+  const minN = next ? 1 - len(D, SHIFT.st) : 0;           // the stage keeps at least one day
+  $('shift').innerHTML = '<h3>📅 שינוי תאריכי שלבים</h3>' +
+    '<div class="form"><label>השלב שמתארך / מתקצר<select id="shSt">' + opts + '</select></label>' +
+    '<label>בכמה ימים<input type="number" id="shN" value="' + SHIFT.n + '" style="width:80px"></label></div>' +
+    (next ? '<div class="steps">' + [-7, -3, -1, 1, 3, 7].map((d) => '<button class="btn" data-d="' + d + '">' + (d > 0 ? '+' : '') + d + '</button>').join('') +
+      (D[next] !== today && toToday >= minN ? '<button class="btn" data-t="1">' + stageById(next).name + ' מתחיל/ה היום</button>' : '') + '</div>'
+      : '<p class="muted small">אחרי ה' + stageById(SHIFT.st).name + ' עוד לא נקבע שלב – אין מה להזיז. תאריך לשלב הבא קובעים ב"פרטי האצווה".</p>') +
+    '<table>' + STAGE_IDS.filter((k) => D[k] || N[k]).map((k) => { const ch = N[k] !== D[k], l = len(N, k); return '<tr><td class="n">' + stageById(k).name + '</td><td class="d' + (ch ? ' chg' : '') + '">' + (ch ? '<span class="old">' + ddmy(D[k]) + '</span>' : '') + ddmy(N[k]) + '</td><td class="muted small">' + (l != null ? l + ' ימים' : k === 'dry' ? '' : 'עד שייקבע הבא') + '</td></tr>'; }).join('') + '</table>' +
+    '<p class="muted small" style="margin:8px 0 0">' + (SHIFT.n ? 'ה' + stageById(SHIFT.st).name + ' ' + (SHIFT.n > 0 ? 'יתארך ב-' + SHIFT.n : 'יתקצר ב-' + -SHIFT.n) + ' ימים, וכל השלבים שאחריו זזים איתו. היעדים (VPD, טמפ׳, לחות, ייבוש) והדישון עוברים לפי התאריכים החדשים.' : 'בחר בכמה ימים להאריך (+) או לקצר (−).') + '</p>' +
+    '<div class="links" style="margin-top:10px"><button class="btn primary" id="shSave"' + (SHIFT.n ? '' : ' disabled') + '>שמור</button><button class="btn" id="shCancel">ביטול</button></div><div class="msg" id="shMsg"></div>';
+  $('shSt').onchange = () => { SHIFT.st = $('shSt').value; SHIFT.n = 0; drawShift(); };
+  const setN = (n) => { if (!next) return; SHIFT.n = Math.max(minN, n); drawShift(); };
+  $('shN').onchange = () => setN(Math.round(+$('shN').value || 0));
+  $('shift').querySelectorAll('[data-d]').forEach((b) => b.onclick = () => setN(SHIFT.n + +b.dataset.d));
+  const tb = $('shift').querySelector('[data-t]'); if (tb) tb.onclick = () => setN(toToday);
+  $('shCancel').onclick = () => { SHIFT = null; $('shift').hidden = true; };
+  $('shSave').onclick = async () => {
+    if (!SHIFT.n) return;
+    $('shSave').disabled = true; $('shMsg').textContent = 'שומר…'; $('shMsg').className = 'msg';
+    try { await saveMeta({ stages: shiftDates() }); SHIFT = null; $('shift').hidden = true; VIEW = null; say('תאריכי השלבים עודכנו'); render(); cfRender(); }
+    catch (e) { $('shMsg').textContent = 'לא נשמר – ' + e.message; $('shMsg').className = 'msg err'; $('shSave').disabled = false; }
+  };
 }
 
 /* name + start of flowering. The fields are filled only when the form opens, so a refresh in the middle never wipes what was typed */
@@ -410,7 +464,7 @@ $('refresh').onclick = loadAll;
 loadAll();
 let rz, lastW = window.innerWidth;                 // only a change of width redraws (the keyboard opening changes the height only)
 window.addEventListener('resize', () => { if (window.innerWidth === lastW) return; lastW = window.innerWidth; clearTimeout(rz); rz = setTimeout(render, 200); });
-liveRefresh(() => !document.hidden && !EDIT && !FEDIT && document.activeElement !== $('nText'), loadAll);   // every minute, and at once when the app comes back to the screen
+liveRefresh(() => !document.hidden && !EDIT && !FEDIT && !SHIFT && document.activeElement !== $('nText'), loadAll);   // every minute, and at once when the app comes back to the screen
 </script>
 </body>
 </html>
