@@ -93,6 +93,10 @@
       <h3 style="margin:16px 0 6px">כיסוי וצמיחה יומית</h3>
       <div class="chart" id="gChart"></div>
       <div style="overflow-x:auto;margin-top:10px"><table class="gtab" id="gTab"></table></div>
+      <h3 style="margin:16px 0 6px">ייצוא לייעוץ</h3>
+      <div class="muted small">סיכום מספרי של כל הטווח: לכל יום כיסוי, צמיחה, סביבה (ממוצע, מינ׳-מקס׳, VPD בשעות האור), השקיות וייבוש, ומטריצה של כל משבצת. מדביקים אותו בשיחה עם Claude ושואלים.</div>
+      <div class="links" style="margin-top:8px"><button class="btn primary" id="gCopy">📋 העתק סיכום</button><button class="btn" id="gCsv">⬇ CSV מלא</button></div>
+      <textarea id="gTxt" readonly hidden style="width:100%;height:220px;margin-top:8px;direction:ltr;font:12px/1.4 ui-monospace,monospace;background:var(--card2);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:8px"></textarea>
     </div>
   </section>
   <div class="msg" id="msg"></div>
@@ -386,10 +390,14 @@ async function loadGi() {
       const t = new Date(d + 'T12:00:00').getTime(), air = g ? g.P.air.filter((a) => dayKey(a.t) === d && inHours(a.t, 0, 24)) : [];
       const lit = air.filter((a) => inHours(a.t, h0, h1));
       const avg = (L, f) => L.length ? L.reduce((s2, a) => s2 + f(a), 0) / L.length : null;
-      days.push({ d, t, cells, n: C.length, photo: pick.filter((p) => dayKey(p.t) === d).slice(-1)[0], temp: avg(air, (a) => a.temp), rh: avg(air, (a) => a.rh), vpd: avg(lit.length ? lit : air, (a) => a.vpd), po: g ? phaseOf(g.cycle, t) : null });
+      const ev = g ? g.P.A.ev.filter((e) => dayKey(e.t) === d) : [], wp = g ? g.P.A.pts.filter((w) => dayKey(w.t) === d && w.db != null) : [];
+      const mn = (L, f) => L.length ? Math.min(...L.map(f)) : null, mxx = (L, f) => L.length ? Math.max(...L.map(f)) : null;
+      days.push({ d, t, cells, n: C.length, photo: pick.filter((p) => dayKey(p.t) === d).slice(-1)[0], temp: avg(air, (a) => a.temp), rh: avg(air, (a) => a.rh), vpd: avg(lit.length ? lit : air, (a) => a.vpd), po: g ? phaseOf(g.cycle, t) : null,
+        tmin: mn(air, (a) => a.temp), tmax: mxx(air, (a) => a.temp), rhmin: mn(air, (a) => a.rh), rhmax: mxx(air, (a) => a.rh), vpdAll: avg(air, (a) => a.vpd), nAir: air.length,
+        irr: ev.length, irrG: ev.reduce((s2, e) => s2 + Math.max(0, (e.full || e.peak) - e.before), 0), dbMax: mxx(wp, (w) => w.db) });
     });
     if (!days.length) { $('gMsg').textContent = 'כל התמונות בשעות האלה חשוכות – בחר שעות שבהן האור דולק'; return; }
-    GI.res = { days, n, T }; GI.day = days[days.length - 1].d;
+    GI.res = { days, n, T, cam, h: $('gH0').value + '–' + $('gH1').value, g }; GI.day = days[days.length - 1].d; $('gTxt').hidden = true;
     $('gDay').innerHTML = days.map((x) => '<option value="' + x.d + '">' + dm(x.t) + (x.po ? ' · ' + x.po.stage.name + ' יום ' + x.po.day : '') + '</option>').join(''); $('gDay').value = GI.day;
     $('gMsg').textContent = days.length + ' ימים · ' + pick.length + ' תמונות';
     $('gOut').hidden = false; giSummary(); await giDraw();
@@ -463,6 +471,42 @@ $('gCv').onclick = (e) => {
   giSummary(); giDraw();
 };
 (() => { const f = store.get('giForm'); if (f) { $('gH0').value = f.h0 || '10:00'; $('gH1').value = f.h1 || '15:00'; $('gN').value = String(f.n || 6); $('gT').value = f.T || 20; } })();
+
+/* ---------- export: the numbers in a compact text (to paste into a chat) or a full CSV ---------- */
+const f1 = (v, d) => v == null || !isFinite(v) ? '' : (+v).toFixed(d == null ? 1 : d);
+function giReport() {
+  giCalc();
+  const R = GI.res, D = R.days, n = R.n, ex = giEx(n), last = D[D.length - 1], po = last.po, tg = po && po.ph;
+  const cell = (k) => 'r' + (Math.floor(k / n) + 1) + 'c' + (k % n + 1);
+  const L = [];
+  L.push('BCI grow-room growth report · made ' + dayKey(Date.now()) + ' ' + hm(Date.now()));
+  L.push('Camera: ' + R.cam + ' | photos analysed per day: up to 5 between ' + R.h + ' (median per cell) | grid ' + n + 'x' + n + ' | green sensitivity (2G-R-B >) ' + R.T);
+  L.push('Cover% = share of the cell that is plant pixels (camera at an angle: a relative index, not cm²). Growth% = (cover today / cover previous day)^(1/days) - 1.');
+  L.push('Cells: r=row from top, c=column from left. Excluded from totals: ' + (ex.length ? ex.slice().sort((a, b) => a - b).map(cell).join(' ') : 'none'));
+  if (po) L.push('Stage now: ' + (po.stage.en || po.stage.name) + (po.ph && po.ph !== po.stage ? ' / ' + (po.ph.en || po.ph.name) : '') + ', day ' + po.day + ', week ' + po.week + (tg ? ' | targets: VPD ' + tg.vpd.join('-') + ' kPa, temp ' + tg.temp.join('-') + ' C, RH ' + tg.rh.join('-') + ' %, dryback ' + tg.db.join('-') + ' %' : ''));
+  L.push('');
+  L.push('DAILY');
+  L.push('date,stage_day,photos,cover%,growth%/d,median_cell_growth%,slow_cells,temp_avg,temp_min,temp_max,rh_avg,rh_min,rh_max,vpd_lit_hours,vpd_24h,irrigations,irrigation_g,dryback_max%');
+  D.forEach((x) => L.push([x.d, x.po ? x.po.stage.en + ' ' + x.po.day : '', x.n, f1(x.tot), f1(x.g), f1(x.mg), x.slow.length ? x.slow.map(cell).join(' ') : '', f1(x.temp), f1(x.tmin), f1(x.tmax), f1(x.rh, 0), f1(x.rhmin, 0), f1(x.rhmax, 0), f1(x.vpd, 2), f1(x.vpdAll, 2), x.nAir ? x.irr : '', x.nAir ? f1(x.irrG, 0) : '', f1(x.dbMax)].join(',')));
+  const mat = (title, x, vals) => { L.push(''); L.push(title + ' – ' + x.d); for (let r = 0; r < n; r++) L.push('r' + (r + 1) + ': ' + Array.from({ length: n }, (_, c) => { const k = r * n + c; return ex.includes(k) ? 'x' : vals[k] == null ? '.' : f1(vals[k], Math.abs(vals[k]) < 10 ? 1 : 0); }).join(' ')); };
+  D.slice(-3).forEach((x) => mat('CELL COVER %', x, x.cells));
+  D.slice(-3).forEach((x) => { if (x.cg.some((v) => v != null)) mat('CELL GROWTH % vs previous day', x, x.cg); });
+  L.push(''); L.push('(x = excluded cell, . = too little plant to compare)');
+  return L.join('\n');
+}
+function giCsv() {
+  giCalc();
+  const R = GI.res, n = R.n, ex = giEx(n), rows = [['date', 'cell', 'row', 'col', 'excluded', 'cover%', 'growth%/d', 'day_cover%', 'day_growth%', 'temp_avg', 'rh_avg', 'vpd_lit', 'irrigations', 'dryback_max%']];
+  R.days.forEach((x) => x.cells.forEach((v, k) => rows.push([x.d, 'r' + (Math.floor(k / n) + 1) + 'c' + (k % n + 1), Math.floor(k / n) + 1, k % n + 1, ex.includes(k) ? 1 : 0, f1(v, 2), f1(x.cg[k]), f1(x.tot, 2), f1(x.g), f1(x.temp), f1(x.rh, 0), f1(x.vpd, 2), x.nAir ? x.irr : '', f1(x.dbMax)])));
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['﻿' + rows.map((r) => r.join(',')).join('\n')], { type: 'text/csv;charset=utf-8' }));
+  a.download = 'bci_growth_' + R.days[0].d + '_' + R.days[R.days.length - 1].d + '.csv'; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+$('gCopy').onclick = async () => {
+  if (!GI.res) return; const t = giReport(); $('gTxt').value = t; $('gTxt').hidden = false;
+  try { await navigator.clipboard.writeText(t); $('gCopy').textContent = '✓ הועתק – הדבק בשיחה'; } catch (e) { $('gTxt').select(); $('gCopy').textContent = 'סמן והעתק מהתיבה'; }
+  setTimeout(() => { $('gCopy').textContent = '📋 העתק סיכום'; }, 4000);
+};
+$('gCsv').onclick = () => { if (GI.res) giCsv(); };
 
 /* ---------- live: today's photo follows the newest one, and the readings are read again (every minute) ---------- */
 async function live() {
