@@ -45,10 +45,13 @@
 <script>
 $('refresh').innerHTML = ICON.refresh; $('back').innerHTML = ICON.back;
 /* what the Culception RS485 sensors send (4 values): known IDs get names, the rest are shown raw */
+/* an EC sensor shows a raw number; checked against a Bluelab pen in two solutions it gets a correction: EC = a × raw + b */
+const calV = (c, raw) => c && isFinite(raw) ? c.a * raw + (c.b || 0) : null;
+const ecTiles = (id) => (v, c) => { const ec = calV(c, v[0]); return [['EC', ec != null ? fmt(Math.max(0, ec), 2) : fmt(v[0], 2), ec != null ? 'mS/cm' : '', ec != null ? 'מכויל · גולמי ' + fmt(v[0], 2) : 'לא מכויל · מכשיר ' + id], ['טמפ׳ EC', fmt(v[1], 1), '°C', 'מכשיר ' + id]]; };
 const SENSOR = {
   1:  { name: 'קרינה', tiles: (v) => [['קרינה', fmt(v[0], 0), '', 'מכשיר 1']] },
-  12: { name: 'EC', tiles: (v) => [['EC מצע', fmt(v[0], 2), '', 'מכשיר 12'], ['טמפ׳ מצע', fmt(v[1], 1), '°C', 'מכשיר 12']] },
-  14: { name: 'EC', tiles: (v) => [['EC מצע', fmt(v[0], 2), '', 'מכשיר 14'], ['טמפ׳ מצע', fmt(v[1], 1), '°C', 'מכשיר 14']] },
+  12: { name: 'EC', ec: true, tiles: ecTiles(12) },
+  14: { name: 'EC', ec: true, tiles: ecTiles(14) },
 };
 let DATA = null, editing = null;
 const OFF_MIN = 20;                                         // no data for 20 minutes = the station is shown as off
@@ -63,7 +66,7 @@ function card(s) {
   }
   Object.keys(s.sensors || {}).sort((a, b) => a - b).forEach((id) => {
     const x = s.sensors[id], def = SENSOR[id];
-    if (def) def.tiles(x.v).forEach((t) => T.push(tile(t[0], t[1], t[2], t[3])));
+    if (def) def.tiles(x.v, (s.cal || {})[id]).forEach((t) => T.push(tile(t[0], t[1], t[2], t[3])));
     else T.push(tile('מכשיר ' + id, x.v.map((n) => fmt(n, 2)).join(' · '), '', ''));
   });
   const title = s.name || s.id;
@@ -72,6 +75,11 @@ function card(s) {
     '<label>חדר<input id="eRoom" value="' + esc(s.room) + '" placeholder="למשל: אינדור 1"></label>' +
     '<label>מקום בחדר<input id="eSpot" value="' + esc(s.spot) + '" placeholder="למשל: שורה 2, מזרח"></label>' +
     '<label style="flex-direction:row;align-items:center;gap:6px"><input type="checkbox" id="eHide"' + (s.hidden ? ' checked' : '') + '> הסתר</label>' +
+    Object.keys(s.sensors || {}).filter((id) => SENSOR[id] && SENSOR[id].ec).map((id) => { const c = (s.cal || {})[id], raw = s.sensors[id].v[0];
+      return '<div style="flex:1 1 100%;margin-top:6px"><b class="small">כיול EC – מכשיר ' + id + '</b> <span class="muted small">' + (c ? 'עכשיו: EC = ' + fmt(c.a, 3) + ' × גולמי ' + (c.b < 0 ? '− ' : '+ ') + fmt(Math.abs(c.b), 3) + (c.note ? ' (' + esc(c.note) + ')' : '') : 'לא מכויל') + '</span>' +
+        '<div class="muted small" style="margin:4px 0">מכניסים את החיישן לשתי תמיסות שונות (למשל מי ברז ותמיסת דישון), ובכל אחת רושמים את הקריאה הגולמית (עכשיו ' + fmt(raw, 3) + ') ואת מה שה-Bluelab מראה.</div>' +
+        '<div class="form">' + [['r1', 'גולמי 1'], ['t1', 'Bluelab 1'], ['r2', 'גולמי 2'], ['t2', 'Bluelab 2']].map((f) => '<label>' + f[1] + '<input type="number" step="0.001" data-cal="' + id + '" data-f="' + f[0] + '" style="width:90px"></label>').join('') +
+        '<label style="flex-direction:row;align-items:center;gap:6px"><input type="checkbox" data-calclear="' + id + '"> בטל כיול</label></div></div>'; }).join('') +
     '<button class="btn primary" onclick="save(\'' + esc(s.id) + '\')">שמור</button><button class="btn" onclick="editing=null;render()">ביטול</button></div></div>' : '';
   return '<div class="st' + (off ? ' off' : '') + '"><h3>📡 ' + esc(title) + (s.spot ? ' <small>' + esc(s.spot) + '</small>' : '') +
     ' <button class="linkbtn" onclick="editing=\'' + esc(s.id) + '\';render()" aria-label="עריכה">✏️</button>' +
@@ -92,6 +100,19 @@ function render() {
 }
 async function save(id) {
   const body = { action: 'savestation', id, name: $('eName').value.trim(), room: $('eRoom').value.trim(), spot: $('eSpot').value.trim(), hidden: $('eHide').checked };
+  // calibration: two points (raw, true) → a, b; nothing typed = keep what is there
+  const st = (DATA.stations || []).find((x) => x.id === id) || {}, cal = Object.assign({}, st.cal || {}); let touched = false;
+  for (const sid of new Set([...document.querySelectorAll('[data-cal]')].map((e) => e.dataset.cal))) {
+    const g = (f) => { const el = document.querySelector('[data-cal="' + sid + '"][data-f="' + f + '"]'); return el && el.value !== '' ? Number(el.value) : null; };
+    const clr = document.querySelector('[data-calclear="' + sid + '"]');
+    if (clr && clr.checked) { delete cal[sid]; touched = true; continue; }
+    const r1 = g('r1'), t1 = g('t1'), r2 = g('r2'), t2 = g('t2');
+    if ([r1, t1, r2, t2].every((x) => x == null)) continue;
+    if ([r1, t1, r2, t2].some((x) => x == null || !isFinite(x)) || Math.abs(r1 - r2) < 0.05) { $('msg').textContent = 'כיול מכשיר ' + sid + ': צריך את כל ארבעת המספרים, משתי תמיסות שונות'; $('msg').className = 'msg err'; return; }
+    const a = (t1 - t2) / (r1 - r2), b = t1 - a * r1;
+    cal[sid] = { a: Math.round(a * 10000) / 10000, b: Math.round(b * 10000) / 10000, note: fmt(r1, 2) + '→' + fmt(t1, 2) + ', ' + fmt(r2, 2) + '→' + fmt(t2, 2) + ' · ' + dm(Date.now()) }; touched = true;
+  }
+  if (touched) body.cal = cal;
   $('msg').textContent = 'שומר…'; $('msg').className = 'msg';
   try { DATA = await apiPost(body); store.set('stations', DATA); editing = null; render(); $('msg').textContent = 'נשמר ✓'; }
   catch (e) { $('msg').textContent = e.message; $('msg').className = 'msg err'; }
