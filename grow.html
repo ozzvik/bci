@@ -155,7 +155,7 @@ async function renderPhotos(gp) {
   const lists = gp.lists || {}, a = (gp.cams || [])[0], b = gp.stitch ? gp.cams[1] : null, L = (dev) => (lists[dev] || []).map((p) => ({ id: p.id, at: p.at, t: Date.parse(p.at) }));
   G.pairs = b ? pairUp(L(a), L(b)) : L(a);
   const n = await newestPhoto(gp);
-  if (n) setPhoto(n.src, n.at); else $('photo').innerHTML = '<div class="empty">אין עדיין תמונות</div>';
+  if (n) setPhoto(n.src, n.at, n); else $('photo').innerHTML = '<div class="empty">אין עדיין תמונות</div>';
   // one photo a day, nearest to 12:00
   const best = {}; G.pairs.forEach((p) => { const k = dayKey(p.t), h = new Date(p.t).getHours() + new Date(p.t).getMinutes() / 60, dd = Math.abs(h - 12); if (!best[k] || dd < best[k].d) best[k] = { p, d: dd }; });
   const list = Object.keys(best).sort().map((k) => best[k].p);
@@ -175,17 +175,17 @@ async function pairSrc(p, w) {
   const [A, B] = await Promise.all([loadImg(a), loadImg(G.frames[w + p.id2])]);
   return A ? joinImages(A, B, G.photos.stitch, A.width) : a;
 }
-function setPhoto(src, at) {
+function setPhoto(src, at, p) {
   const cd = cycleDay(G.cycle, Date.parse(at));
   $('photo').innerHTML = '<img alt="">' + '<div class="cap"><span>' + dm(at) + ' ' + hm(at) + '</span>' + (cd ? '<span>יום ' + cd + '</span>' : '') + '<span class="r">' + ago(Date.parse(at)) + '</span></div>';
-  const img = $('photo').querySelector('img'); img.src = src; img.onclick = () => lightbox(src, dm(at) + ' ' + hm(at));
+  const img = $('photo').querySelector('img'); img.src = src; img.onclick = () => lightbox(src, dm(at) + ' ' + hm(at), p && p.id ? () => hdSrc(p.id, p.id2, p.stitch || G.photos.stitch) : null);
 }
 async function showAt(t, btn) {
   if (!G.pairs.length) return;
   let b = G.pairs[0]; for (const p of G.pairs) if (Math.abs(p.t - t) < Math.abs(b.t - t)) b = p;
   $('strip').querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === btn));
   $('photo').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  const src = await pairSrc(b, 1280).catch(() => null); if (src) setPhoto(src, b.at);
+  const src = await pairSrc(b, 1600).catch(() => null); if (src) setPhoto(src, b.at, b);
 }
 
 /* ---------- load ---------- */
