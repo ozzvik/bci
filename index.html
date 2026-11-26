@@ -26,7 +26,7 @@
   <!-- grow room: the metrics now with their trend -->
   <a class="room" href="batch.html" data-sec="room">
     <div class="rt"><span class="dot" id="gDot"></span><b>חדר פריחה</b><span id="gSub"></span><span class="fl"></span><span class="pill" id="gPill" hidden></span></div>
-    <div class="kp" id="gTiles"></div>
+    <div class="kp" id="gTiles" style="--n:5"></div>
   </a>
   <!-- one chart of everything -->
   <div class="room" data-sec="chart">
@@ -83,8 +83,10 @@ function renderGrow(j) {
     ktile('VPD', COL.vpd, fresh ? fmt(a.vpd, 2) : '—', 'kPa', ph ? ph.vpd[0] + '–' + ph.vpd[1] : '', air.map((p) => p.vpd), st[0], fresh ? '' : 'לא מדווח' + (a ? ' · ' + ago(a.t) : ''), 'vpd'),
     ktile('טמפ׳', COL.temp, fresh ? fmt(a.temp, 1) : '—', '°C', ph ? ph.temp[0] + '–' + ph.temp[1] : '', air.map((p) => p.temp), st[1], '', 'temp'),
     ktile('לחות', COL.rh, fresh ? fmt(a.rh) : '—', '%', ph ? ph.rh[0] + '–' + ph.rh[1] : '', air.map((p) => p.rh), st[2], '', 'rh'),
+    leafTile(ph, t0),
     ktile('ייבוש', COL.w, P.db != null ? fmt(P.db, 1) : '—', '%', dbT[0] + '–' + dbT[1], wp.map((p) => p.db), dbs, eta, 'db'),
   ].join(''); metricTiles($('gTiles'), ph);
+  leafLoad(h / 24 + 1, () => renderGrow(S.grow));
   $('cTitle').textContent = h === 24 ? '24 שעות אחרונות' : h === 48 ? '48 שעות אחרונות' : '7 ימים אחרונים';
   const lgHtml = legend(fresh ? a : null, P.w); $('lg').innerHTML = lgHtml;
   multiChart($('big'), { lg: $('lg'), lgHtml, t0, t1, air: P.air, wpts: P.A.pts, ev: P.A.ev, band: ph ? ph.vpd : [0.8, 1.5], height: window.innerWidth >= 900 ? 280 : 190 });
