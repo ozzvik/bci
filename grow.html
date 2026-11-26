@@ -60,6 +60,14 @@
     <div class="muted small" style="margin-top:4px">קו מלא: VPD אוויר (חיישן התחנה) · קו מקווקו: VPD עלה (Seymour, לפי טמפרטורת העלה)</div>
   </section>
 
+  <section class="card" id="specCard">
+    <h2>ספקטרום האור <span class="muted small">(Seymour · אינדור 1)</span></h2>
+    <div id="specNow"><div class="msg">טוען…</div></div>
+    <h2 style="margin-top:14px">יחס כחול : אדום לאורך זמן</h2>
+    <div class="chart" id="specChart"></div>
+    <div class="muted small" style="margin-top:4px">ערכים יחסיים של חיישן Seymour (לא אנרגיה מוחלטת) – טובים להשוואה בין ימים ולזיהוי שינוי בתאורה. כחול = 415–480 ננומטר, אדום = 630–680.</div>
+  </section>
+
   <section class="card">
     <h2>לפי יום</h2>
     <div class="scroll"><table><thead><tr><th>תאריך</th><th class="n">יום</th><th class="n">השקיות</th><th class="n">מים שנכנסו</th><th class="n">ירידה</th><th class="n">ייבוש מקס׳</th><th class="n">VPD ממוצע</th></tr></thead><tbody id="days"></tbody></table></div>
@@ -120,6 +128,47 @@ function noiseChart(t0, t1) {
       { pts: N.map((p) => [p.t, p.j != null ? Math.min(p.j, top) : null]), color: 'var(--violet)', width: 2, gap: 40 * 60000 }],
     onHover: (t) => { let b = N[0]; for (const p of N) if (Math.abs(p.t - t) < Math.abs(b.t - t)) b = p; return { t: b.t, v: b.j != null ? Math.min(b.j, top) : b.sd != null ? Math.min(b.sd, top) : null, html: '<b>' + dm(b.t) + ' ' + hm(b.t) + '</b><br>ריצוד <span class="num">' + (b.j != null ? fmt(b.j, 2) : '—') + ' g</span> · פיזור <span class="num">' + (b.sd != null ? fmt(b.sd, 1) : '—') + ' g</span> · שבורות <span class="num">' + (b.sp != null ? b.sp : '—') + '</span>' }; } });
 }
+/* ---------- light spectrum from Seymour (Indoor 1 climate: 8 colour channels + NIR), read through the server's seyraw ---------- */
+const SPEC_DEV = '84901ec0-122a-11f1-b902-5ff1ea8c4cf9';
+const SPEC = [['incomingPurple415nm', 415, '#7b2ff7'], ['incomingBlue445nm', 445, '#2f5bff'], ['incomingCyan480nm', 480, '#00b4e6'], ['incomingGreen515nm', 515, '#00c060'],
+  ['incomingLime555nm', 555, '#9ccf00'], ['incomingYellow590nm', 590, '#f5c400'], ['incomingOrange630nm', 630, '#ff7a00'], ['incomingRed680nm', 680, '#e0202a']];
+const SP = { at: 0, days: 0, p: null, d: null };
+function specLoad() {
+  const days = Math.min(7, Math.max(1, G.range));
+  if (SP.d && days <= SP.days && Date.now() - SP.at < 10 * 60000) { specDraw(); return; }
+  if (SP.p) return;
+  SP.p = Promise.all([api('action=seyraw&id=' + SPEC_DEV + '&keys=' + SPEC.map((x) => x[0]).join(',') + '&days=' + days), api('action=seyraw&id=' + SPEC_DEV + '&keys=incomingNIR,incomingClear,PAR&days=' + days)])
+    .then(([a, b]) => { if (!a.ok) throw new Error(a.error || 'Seymour'); SP.d = Object.assign({}, a.data, b.ok ? b.data : {}); SP.at = Date.now(); SP.days = days; specDraw(); })
+    .catch((e) => { $('specNow').innerHTML = '<div class="msg">' + esc(e.message) + '</div>'; }).finally(() => { SP.p = null; });
+}
+function specDraw() {
+  const D = SP.d; if (!D) return;
+  // all channels at the same moments: map time -> values (only when the light is on)
+  const T = {}; Object.keys(D).forEach((k) => (D[k] || []).forEach(([t, v]) => { (T[t] = T[t] || {})[k] = v; }));
+  const rows = Object.keys(T).map(Number).sort((a, b) => a - b).map((t) => ({ t, v: T[t] })).filter((r) => SPEC.every((c) => r.v[c[0]] != null) && (r.v.PAR == null || r.v.PAR > 20));
+  if (!rows.length) { $('specNow').innerHTML = '<div class="msg">אין מדידה כשהאור דולק</div>'; $('specChart').innerHTML = ''; return; }
+  // "now" = the average of the last 30 minutes with light
+  const tl = rows[rows.length - 1].t, last = rows.filter((r) => r.t > tl - 30 * 60000);
+  const avg = (k) => last.reduce((a, r) => a + (r.v[k] || 0), 0) / last.length;
+  const vals = SPEC.map((c) => avg(c[0])), nir = avg('incomingNIR'), par = avg('PAR'), sum = vals.reduce((a, b) => a + b, 0) || 1;
+  const blue = vals[0] + vals[1] + vals[2], green = vals[3] + vals[4], red = vals[5] + vals[6] + vals[7], br = blue / (vals[6] + vals[7] || 1);
+  const W = 340, H = 150, bw = 30, gap = (W - 20 - SPEC.length * bw) / (SPEC.length - 1), mx = Math.max(...vals) || 1;
+  let svg = '<svg viewBox="0 0 ' + W + ' ' + (H + 34) + '" style="width:100%;max-width:520px;display:block;margin:auto" direction="ltr">';
+  SPEC.forEach((c, i) => { const x = 10 + i * (bw + gap), h = vals[i] / mx * (H - 18), y = H - h;
+    svg += '<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + bw + '" height="' + h.toFixed(1) + '" rx="3" fill="' + c[2] + '"/>' +
+      '<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (y - 4).toFixed(1) + '" text-anchor="middle" font-size="10" fill="var(--ink)">' + Math.round(vals[i] / sum * 100) + '%</text>' +
+      '<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (H + 14) + '" text-anchor="middle" font-size="10" fill="var(--muted)">' + c[1] + '</text>'; });
+  svg += '<text x="' + (W / 2) + '" y="' + (H + 30) + '" text-anchor="middle" font-size="10" fill="var(--muted)">ננומטר</text></svg>';
+  $('specNow').innerHTML = svg + '<div class="tiles" style="margin-top:8px">' +
+    tile('כחול', fmt(blue / sum * 100), '%', '415–480') + tile('ירוק', fmt(green / sum * 100), '%', '515–555') + tile('אדום', fmt(red / sum * 100), '%', '590–680') +
+    tile('כחול : אדום', fmt(br, 2), '', 'מול אדום 630–680') + tile('PPFD', fmt(par), 'µmol', 'NIR ' + fmt(nir, 1)) + '</div>' +
+    '<div class="muted small">ממוצע 30 הדקות האחרונות עם אור · עד ' + hm(tl) + '</div>';
+  const t1 = Date.now(), t0 = t1 - G.range * DAY, P = rows.filter((r) => r.t >= t0).map((r) => [r.t, (r.v.incomingPurple415nm + r.v.incomingBlue445nm + r.v.incomingCyan480nm) / ((r.v.incomingOrange630nm + r.v.incomingRed680nm) || 1)]);
+  const pv = P.map((p) => p[1]); const lo = Math.min(...pv), hi = Math.max(...pv), pad = Math.max(.02, (hi - lo) * .15);
+  chart($('specChart'), { t0, t1, height: 130, tip: true, yl: { min: Math.max(0, lo - pad), max: hi + pad, fmt: (v) => fmt(v, 2) },
+    series: [{ pts: P, color: 'var(--blue)', width: 2, gap: 40 * 60000 }],
+    onHover: (t) => { let b = P[0]; for (const p of P) if (Math.abs(p[0] - t) < Math.abs(b[0] - t)) b = p; return { t: b[0], v: b[1], html: '<b>' + dm(b[0]) + ' ' + hm(b[0]) + '</b><br>כחול : אדום <span class="num">' + fmt(b[1], 2) + '</span>' }; } });
+}
 function charts() {
   const P = G.plant; if (!P) return;
   const t1 = Date.now(), t0 = t1 - G.range * DAY, A = P.A, lim = P.lim;
@@ -140,6 +189,7 @@ function charts() {
     chart($('sChart'), { t0, t1, height: 120, yl: { min: Math.min(0, ...sv), max: Math.max(10, ...sv) * 1.1 }, series: [{ pts: hours, color: 'var(--green)', bars: 3600000 }] });
   } else { $('wChart').innerHTML = '<div class="msg">אין קריאות בטווח הזה</div>'; $('sChart').innerHTML = ''; }
   noiseChart(t0, t1);
+  specLoad();
   const air = P.air.filter((p) => p.t >= t0);
   $('airCard').style.display = air.length ? '' : 'none';
   if (air.length) {
