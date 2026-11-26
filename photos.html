@@ -213,10 +213,10 @@ async function drawAt() {
   const p = S.day[S.i]; if (!p) return;
   readingsAt(p.t);
   $('aInfo').textContent = (S.i + 1) + ' / ' + S.day.length + ' ביום הזה';
-  const src = await srcOf(p, 1280);
+  const src = await srcOf(p, 1600);
   if (!src) { $('aPhoto').innerHTML = '<div class="empty">התמונה לא נטענה</div>'; return; }
   $('aPhoto').innerHTML = '<img alt=""><div class="cap"><span>' + caption(p) + '</span><span class="r">' + ago(p.t) + '</span></div>';
-  const img = $('aPhoto').querySelector('img'); img.src = src; img.onclick = () => lightbox(src, caption(p));
+  const img = $('aPhoto').querySelector('img'); img.src = src; img.onclick = () => lightbox(src, caption(p), () => hdSrc(p.id, p.id2, S.st));
   gridOver($('aPhoto'));
   $('aTime').value = hm(p.t);
 }
