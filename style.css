@@ -122,6 +122,14 @@ td.n, th.n { text-align: end; direction: ltr; }
 .lightbox.on { display: grid; }
 .lightbox img { max-width: 100vw; max-height: 100vh; object-fit: contain; }
 .lightbox .x { position: absolute; top: calc(12px + env(safe-area-inset-top)); inset-inline-end: 12px; width: 44px; height: 44px; border-radius: 22px; background: rgba(255, 255, 255, .15); color: #fff; font-size: calc(22px * var(--fs, 1)); }
+.lightbox { direction: ltr; }
+.lightbox img { cursor: zoom-in; }
+.lightbox.zoom { display: block; place-items: start; overflow: auto; -webkit-overflow-scrolling: touch; }
+.lightbox.zoom img { max-width: none; max-height: none; cursor: zoom-out; display: block; }
+.lightbox .x, .lightbox .cap, .lightbox .hd { position: fixed !important; }
+.lightbox .x { right: 12px; left: auto; }
+.lightbox .cap { left: 0; right: 0; text-align: center; }
+.lightbox .hd { top: calc(20px + env(safe-area-inset-top)); left: 14px; color: #bbb; font-size: calc(12px * var(--fs, 1)); background: rgba(0, 0, 0, .45); padding: 3px 8px; border-radius: 8px; direction: rtl; }
 .lightbox .cap { position: absolute; bottom: calc(14px + env(safe-area-inset-bottom)); color: #ddd; font-size: calc(13px * var(--fs, 1)); }
 .foot { text-align: center; color: var(--faint); font-size: calc(12px * var(--fs, 1)); padding: 18px 0 28px; }
 
