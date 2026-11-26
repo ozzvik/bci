@@ -49,7 +49,7 @@ $('refresh').innerHTML = ICON.refresh; $('back').innerHTML = ICON.back;
 const calV = (c, raw) => c && isFinite(raw) ? c.a * raw + (c.b || 0) : null;
 const ecTiles = (id) => (v, c) => { const ec = calV(c, v[0]); return [['EC', ec != null ? fmt(Math.max(0, ec), 2) : fmt(v[0], 2), ec != null ? 'mS/cm' : '', ec != null ? 'מכויל · גולמי ' + fmt(v[0], 2) : 'לא מכויל · מכשיר ' + id], ['טמפ׳ EC', fmt(v[1], 1), '°C', 'מכשיר ' + id]]; };
 const SENSOR = {
-  1:  { name: 'קרינה', tiles: (v) => [['קרינה', fmt(v[0], 0), '', 'מכשיר 1']] },
+  1:  { name: 'קרינה', tiles: (v) => [['PPFD', fmt(v[0], 0), 'µmol', 'חיישן קרינה'], ['LUX', fmt(v[1], 0), '', 'full ' + fmt(v[2], 0) + ' · IR ' + fmt(v[3], 0)]] },
   12: { name: 'EC', ec: true, tiles: ecTiles(12) },
   14: { name: 'EC', ec: true, tiles: ecTiles(14) },
 };
