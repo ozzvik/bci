@@ -46,6 +46,10 @@
     <div class="chart" id="wChart"></div>
     <h2 style="margin-top:14px">קצב ייבוש <span class="muted small">(גרם לשעה)</span></h2>
     <div class="chart" id="sChart"></div>
+    <h2 style="margin-top:14px">רעש במשקל <span class="muted small">(גרם · האם הקפיצות חשמליות?)</span></h2>
+    <div class="legend"><span><i style="background:var(--violet)"></i>ריצוד – רעש חשמלי</span><span><i style="background:var(--muted)"></i>פיזור ב-5 דק׳ (כולל שינוי אמיתי)</span><span><i style="background:var(--red);height:8px"></i>קריאות שבורות</span></div>
+    <div class="chart" id="nChart"></div>
+    <div class="muted small">רעש חשמלי = הקו הסגול קופץ כשהאור נדלק. חימום מהמנורה = המשקל עולה בהדרגה והקו הסגול נשאר נמוך.</div>
   </section>
 
   <section class="card" id="airCard">
@@ -72,7 +76,7 @@ const adminUrl = store.get('adminUrl'); if (adminUrl) $('admin').href = adminUrl
 
 function render() {
   const g = G.grow; if (!g) return;
-  const c = G.cycle = g.cycle || {}, P = G.plant = plantNow(g.points || [], c), d = cycleDay(c, Date.now());
+  const c = G.cycle = g.cycle || {}, P = G.plant = plantNow(g.points || [], c), d = cycleDay(c, Date.now()); G.pts = g.points || [];
   $('title').textContent = (c.name || 'חדר גידול') + (d ? ' · יום ' + d : '');
   // air
   const a = P.airNow, vs = a ? vpdState(a.vpd) : '';
@@ -103,6 +107,19 @@ function render() {
 }
 function minmax(arr, k, d, u) { const d0 = new Date(); d0.setHours(0, 0, 0, 0); const v = arr.filter((p) => p.t >= d0).map((p) => p[k]); return v.length ? 'היום <span class="num">' + fmt(Math.min(...v), d) + '–' + fmt(Math.max(...v), d) + u + '</span>' : ''; }
 
+/* noise of the scale (sent by M5-grow every 5 min): j = jitter (electrical), sd = spread in the 5 min, sp = broken readings */
+function noiseChart(t0, t1) {
+  const dev = (G.cycle && G.cycle.scale) || 'M5-grow';
+  const N = (G.pts || []).filter((p) => p.device === dev && (p.sd != null || p.j != null)).map((p) => ({ t: Date.parse(p.at), sd: p.sd, j: p.j, sp: p.sp })).filter((p) => p.t >= t0).sort((a, b) => a.t - b.t);
+  if (!N.length) { $('nChart').innerHTML = '<div class="msg">אין עדיין נתוני רעש</div>'; return; }
+  const vals = N.flatMap((p) => [p.sd, p.j]).filter((v) => v != null && isFinite(v)).sort((a, b) => a - b);
+  const top = Math.max(2, vals[Math.floor(vals.length * .97)] || 2) * 1.15, spMax = Math.max(1, ...N.map((p) => p.sp || 0));
+  chart($('nChart'), { t0, t1, height: 140, tip: true, yl: { min: 0, max: top }, yr: { min: 0, max: spMax * 1.1, fmt: (v) => fmt(v) },
+    series: [{ pts: N.map((p) => [p.t, p.sp || 0]), color: 'var(--red)', bars: 5 * 60000, axis: 'r' },
+      { pts: N.map((p) => [p.t, p.sd != null ? Math.min(p.sd, top) : null]), color: 'var(--muted)', width: 1.2, gap: 40 * 60000 },
+      { pts: N.map((p) => [p.t, p.j != null ? Math.min(p.j, top) : null]), color: 'var(--violet)', width: 2, gap: 40 * 60000 }],
+    onHover: (t) => { let b = N[0]; for (const p of N) if (Math.abs(p.t - t) < Math.abs(b.t - t)) b = p; return { t: b.t, v: b.j != null ? Math.min(b.j, top) : b.sd != null ? Math.min(b.sd, top) : null, html: '<b>' + dm(b.t) + ' ' + hm(b.t) + '</b><br>ריצוד <span class="num">' + (b.j != null ? fmt(b.j, 2) : '—') + ' g</span> · פיזור <span class="num">' + (b.sd != null ? fmt(b.sd, 1) : '—') + ' g</span> · שבורות <span class="num">' + (b.sp != null ? b.sp : '—') + '</span>' }; } });
+}
 function charts() {
   const P = G.plant; if (!P) return;
   const t1 = Date.now(), t0 = t1 - G.range * DAY, A = P.A, lim = P.lim;
@@ -122,6 +139,7 @@ function charts() {
     const sv = hours.map((h) => h[1]).filter((v) => v != null);
     chart($('sChart'), { t0, t1, height: 120, yl: { min: Math.min(0, ...sv), max: Math.max(10, ...sv) * 1.1 }, series: [{ pts: hours, color: 'var(--green)', bars: 3600000 }] });
   } else { $('wChart').innerHTML = '<div class="msg">אין קריאות בטווח הזה</div>'; $('sChart').innerHTML = ''; }
+  noiseChart(t0, t1);
   const air = P.air.filter((p) => p.t >= t0);
   $('airCard').style.display = air.length ? '' : 'none';
   if (air.length) {
