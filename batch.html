@@ -294,7 +294,7 @@ async function photo(P) {
   const tp = Date.parse(n.at), near = (L, f) => { let b = null, bd = 20 * 60000; L.forEach((p) => { const d = Math.abs(p.t - tp); if (d <= bd && f(p)) { bd = d; b = p; } }); return b; };
   const a = near(P.air, () => true), w = near(P.A.pts, (p) => p.w != null), ch = (k, v, c) => '<span class="chip' + (c ? ' ' + c : '') + '"><span>' + k + '</span>' + v + '</span>';
   $('photo').innerHTML = '<img src="' + n.src + '" alt=""><div class="ov">' + ch('🕒', hm(tp) + ' · ' + ago(tp)) + (a ? ch('T', fmt(a.temp, 1) + '°') + ch('RH', fmt(a.rh) + '%') + ch('VPD', fmt(a.vpd, 2)) : ch('⚠', 'חסרים נתוני סביבה', 'miss')) + (w ? ch('⚖', fmt(w.w) + ' g') : '') + '</div>';
-  $('photo').querySelector('img').onclick = () => lightbox(n.src, dm(Date.parse(n.at)) + ' ' + hm(Date.parse(n.at)));
+  $('photo').querySelector('img').onclick = () => lightbox(n.src, dm(Date.parse(n.at)) + ' ' + hm(Date.parse(n.at)), n.id ? () => hdSrc(n.id, n.id2, n.stitch) : null);
 }
 
 /* ---------- moving the stages: e.g. a few more days of veg = flowering and drying start that much later ---------- */
