@@ -53,6 +53,7 @@
     <div class="legend"><span><i style="background:var(--amber)"></i>טמפרטורה (°C)</span><span><i style="background:var(--blue)"></i>לחות (%)</span><span><i style="background:var(--green)"></i>VPD (kPa)</span><span><i style="background:color-mix(in srgb,var(--green) 15%,transparent);height:10px"></i>טווח VPD טוב 0.8–1.5</span></div>
     <div class="chart" id="aChart"></div>
     <div class="chart" id="vChart" style="margin-top:8px"></div>
+    <div class="muted small" style="margin-top:4px">קו מלא: VPD אוויר (חיישן התחנה) · קו מקווקו: VPD עלה (Seymour, לפי טמפרטורת העלה)</div>
   </section>
 
   <section class="card">
@@ -98,6 +99,7 @@ function render() {
   } else $('wTiles').innerHTML = '<div class="muted small">אין עדיין קריאות מהמשקל</div>';
   $('sub').textContent = 'עודכן ' + hm(Date.parse(g.now || Date.now())) + (c.start ? ' · התחיל ' + dm(c.start + 'T00:00') : '');
   charts(); days();
+  leafLoad(G.range + 1, charts);
 }
 function minmax(arr, k, d, u) { const d0 = new Date(); d0.setHours(0, 0, 0, 0); const v = arr.filter((p) => p.t >= d0).map((p) => p[k]); return v.length ? 'היום <span class="num">' + fmt(Math.min(...v), d) + '–' + fmt(Math.max(...v), d) + u + '</span>' : ''; }
 
@@ -130,10 +132,12 @@ function charts() {
     chart($('aChart'), { t0, t1, height: 190, tip: true, photos: true, yl: { min: tl, max: th, fmt: (v) => fmt(v) + '°' }, yr: { min: hl, max: hh, fmt: (v) => fmt(v) + '%' },
       series: [{ pts: air.map((p) => [p.t, p.rh]), color: 'var(--blue)', axis: 'r', gap: 40 * 60000 }, { pts: air.map((p) => [p.t, p.temp]), color: 'var(--amber)', width: 2.2, gap: 40 * 60000 }],
       onHover: (t) => { const b = near(t); return { t: b.t, v: b.temp, html: tipA(b) }; }, onClick: (t) => showAt(t) });
-    const vl = Math.max(0, Math.min(.6, ...vv) - .1), vh = Math.max(1.8, ...vv) + .1;
+    const lf = LEAF ? LEAF.pts.filter((p) => p.t >= t0) : [], lv = lf.map((p) => p.v);
+    const vl = Math.max(0, Math.min(.6, ...vv, ...lv) - .1), vh = Math.max(1.8, ...vv, ...lv) + .1;
+    const nearL = (t) => { let b = null; for (const p of lf) if (Math.abs(p.t - t) <= 45 * 60000 && (!b || Math.abs(p.t - t) < Math.abs(b.t - t))) b = p; return b; };
     chart($('vChart'), { t0, t1, height: 130, tip: true, photos: true, yl: { min: vl, max: vh, fmt: (v) => fmt(v, 1) }, bands: [[.8, 1.5, 'color-mix(in srgb, var(--green) 12%, transparent)']],
-      series: [{ pts: air.map((p) => [p.t, p.vpd]), color: 'var(--green)', width: 2.2, gap: 40 * 60000 }],
-      onHover: (t) => { const b = near(t); return { t: b.t, v: b.vpd, html: tipA(b) }; } });
+      series: [{ pts: air.map((p) => [p.t, p.vpd]), color: 'var(--green)', width: 2.2, gap: 40 * 60000 }, { pts: lf.map((p) => [p.t, p.v]), color: COL_LEAF, width: 1.8, dash: '5 3', gap: 75 * 60000 }],
+      onHover: (t) => { const b = near(t), l = nearL(t); return { t: b.t, v: b.vpd, html: tipA(b) + (l ? '<br><span class="num">VPD עלה ' + fmt(l.v, 2) + ' · עלה ' + fmt(l.leaf, 1) + '°</span>' : '') }; } });
   }
 }
 function days() {
