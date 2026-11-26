@@ -205,13 +205,14 @@ function render() {
     ktile('טמפ׳', COL.temp, fresh ? fmt(a.temp, 1) : '—', '°C', ph.temp[0] + '–' + ph.temp[1], air.map((p) => p.temp), fresh ? band(a.temp, ph.temp, 1.5) : 'off', '', 'temp'),
     ktile('לחות', COL.rh, fresh ? fmt(a.rh) : '—', '%', ph.rh[0] + '–' + ph.rh[1], air.map((p) => p.rh), fresh ? band(a.rh, ph.rh, 5) : 'off', '', 'rh'),
     ktile('ייבוש', COL.w, P.db != null ? fmt(P.db, 1) : '—', '%', ph.db[0] + '–' + ph.db[1], wp.map((p) => p.db), P.db == null ? 'off' : P.db > ph.db[1] ? 'bad' : '', eta, 'db'),
-    ktile('EC מצע', COL.rh, '—', '', '', null, 'off', 'אין חיישן מצע עדיין'),
+    leafTile(ph, t0),
     ktile('משקל', COL.w, P.w != null ? fmt(P.w) : '—', 'g', P.full ? 'מלא ' + fmt(P.full) : '', wp.map((p) => p.w), P.w != null ? '' : 'off', P.speed != null ? fmt(P.speed) + ' g/h' : '', 'w'),
   ].join(''); metricTiles($('live'), ph);
   const lgHtml = legend(fresh ? a : null, P.w); $('lg').innerHTML = lgHtml;
   multiChart($('big'), { lg: $('lg'), lgHtml, t0, t1, air: P.air, wpts: P.A.pts, ev: P.A.ev, band: ph.vpd, height: window.innerWidth >= 900 ? 300 : 200 });
   $('note').textContent = 'יעדי האקלים והייבוש של כל שלב נקבעים בדף ההגדרות. הדישון בא מהתוכנית שבמחשבון, אלא אם התאמת אותו לאצווה.';
   side(); photo(P);
+  leafLoad(h / 24 + 1, render);
 }
 
 /* the cards of the chosen phase: fertigation, notes, tasks */
