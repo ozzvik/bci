@@ -200,11 +200,11 @@ const loadImg = (src) => new Promise((ok) => { if (!src) return ok(null); const 
 /** the newest photo (both cameras joined when set so) as an image URL */
 async function newestPhoto(gp) {
   const L = gp.latest || [];
-  if (!L[0]) return L[1] ? { src: 'data:image/jpeg;base64,' + L[1].b64, at: L[1].at } : null;
+  if (!L[0]) return L[1] ? { src: 'data:image/jpeg;base64,' + L[1].b64, at: L[1].at, id: L[1].id } : null;
   const a = 'data:image/jpeg;base64,' + L[0].b64;
-  if (!gp.stitch || !L[1]) return { src: a, at: L[0].at };
+  if (!gp.stitch || !L[1]) return { src: a, at: L[0].at, id: L[0].id };
   const [A, B] = await Promise.all([loadImg(a), loadImg('data:image/jpeg;base64,' + L[1].b64)]);
-  return { src: A ? joinImages(A, B, gp.stitch, A.width) : a, at: L[0].at };
+  return { src: A ? joinImages(A, B, gp.stitch, A.width) : a, at: L[0].at, id: L[0].id, id2: L[1].id, stitch: gp.stitch };
 }
 
 /* ---------- small things ---------- */
@@ -216,9 +216,37 @@ const ICON = {
 function tile(label, value, unit, sub, cls, extra) {
   return '<div class="tile ' + (cls || '') + '"><div class="l">' + label + '</div><div class="v">' + value + (unit ? '<small>' + unit + '</small>' : '') + '</div>' + (extra || '') + '<div class="s">' + (sub || '') + '</div></div>';
 }
-function lightbox(src, cap) {
-  let lb = $('lb'); if (!lb) { lb = document.createElement('div'); lb.id = 'lb'; lb.className = 'lightbox'; lb.innerHTML = '<img><button class="x" aria-label="סגור">✕</button><div class="cap"></div>'; document.body.appendChild(lb); lb.addEventListener('click', () => lb.classList.remove('on')); }
-  lb.querySelector('img').src = src; lb.querySelector('.cap').textContent = cap || ''; lb.classList.add('on');
+/* Full photo over the page. hi (optional) = async () => a sharper version (2048 px); it replaces the small one when it arrives.
+   Tap the photo = zoom in there (drag / scroll to move), tap again = back; tap outside or ✕ = close. */
+function lightbox(src, cap, hi) {
+  let lb = $('lb');
+  if (!lb) {
+    lb = document.createElement('div'); lb.id = 'lb'; lb.className = 'lightbox';
+    lb.innerHTML = '<img alt=""><button class="x" aria-label="סגור">✕</button><div class="hd"></div><div class="cap"></div>';
+    document.body.appendChild(lb);
+    lb.addEventListener('click', (e) => { const im = lb.querySelector('img'); if (e.target === im) return lbZoom(e, lb, im); lb.classList.remove('on', 'zoom'); im.style.width = ''; });
+  }
+  const tok = (lb.tok = (lb.tok || 0) + 1), im = lb.querySelector('img'), hd = lb.querySelector('.hd');
+  lb.classList.remove('zoom'); im.style.width = ''; im.src = src; lb.querySelector('.cap').textContent = cap || ''; lb.classList.add('on');
+  hd.textContent = hi ? 'טוען HD…' : 'הקש על התמונה להגדלה';
+  if (hi) Promise.resolve().then(hi).then((s) => { if (lb.tok !== tok) return; if (s) im.src = s; hd.textContent = (s ? 'HD · ' : '') + 'הקש על התמונה להגדלה'; })
+    .catch(() => { if (lb.tok === tok) hd.textContent = 'HD לא נטען · הקש להגדלה'; });
+}
+function lbZoom(e, lb, im) {
+  if (lb.classList.contains('zoom')) { lb.classList.remove('zoom'); im.style.width = ''; return; }
+  const r = im.getBoundingClientRect(), fx = (e.clientX - r.left) / r.width, fy = (e.clientY - r.top) / r.height;
+  const W = Math.round(Math.min(Math.max(im.naturalWidth || 0, innerWidth * 2.5), innerWidth * 4)), H = W * (im.naturalHeight || 3) / (im.naturalWidth || 4);
+  lb.classList.add('zoom'); im.style.width = W + 'px';
+  lb.scrollLeft = fx * W - innerWidth / 2; lb.scrollTop = fy * H - innerHeight / 2;
+}
+/* the same photo at 2048 px (both cameras joined when id2 is given) */
+const HD = {};
+async function hdSrc(id, id2, stitch) {
+  const ids = [id, id2].filter((x) => x && !HD[x]);
+  if (ids.length) { const j = await apiPost({ action: 'tlframes', w: 2048, items: ids.map((x) => ({ id: x })) }); (j.frames || []).forEach((f) => { if (f.b64) HD[f.id] = 'data:image/jpeg;base64,' + f.b64; }); }
+  const a = HD[id]; if (!a) return null; if (!id2 || !HD[id2] || !stitch) return a;
+  const [A, B] = await Promise.all([loadImg(a), loadImg(HD[id2])]);
+  return A && B ? joinImages(A, B, stitch, A.width) : a;
 }
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
 
@@ -377,9 +405,9 @@ async function photoAt(t) {
   const b = g.stitch && cams[1] ? hpNear(g.lists[cams[1]], a.t, 10 * 60000) : null;
   const [sa, sb] = await hpFrames([a.id, b && b.id]);
   if (!sa) return null;
-  if (!sb) return { src: sa, t: a.t };
+  if (!sb) return { src: sa, t: a.t, id: a.id };
   const [A, B] = await Promise.all([loadImg(sa), loadImg(sb)]);
-  return { src: A && B ? joinImages(A, B, g.stitch, A.width) : sa, t: a.t };
+  return { src: A && B ? joinImages(A, B, g.stitch, A.width) : sa, t: a.t, id: a.id, id2: b.id, stitch: g.stitch };
 }
 /** shows the photo of time t in a small window over the chart el (on the side away from the finger: side 'l' or 'r') */
 function hoverPhoto(el, t, side) {
@@ -392,7 +420,7 @@ function hoverPhoto(el, t, side) {
       const p = await photoAt(t); if (HP.want !== t) return;
       if (!p) { box.querySelector('img').removeAttribute('src'); box.querySelector('span').textContent = 'אין תמונה סמוך לזמן הזה'; box.classList.add('none'); return; }
       box.classList.remove('none'); box.querySelector('img').src = p.src; box.querySelector('span').textContent = '📷 ' + dm(p.t) + ' ' + hm(p.t);
-      box.onclick = () => lightbox(p.src, dm(p.t) + ' ' + hm(p.t));
+      box.onclick = () => lightbox(p.src, dm(p.t) + ' ' + hm(p.t), p.id ? () => hdSrc(p.id, p.id2, p.stitch) : null);
     } catch (e) { box.querySelector('span').textContent = e.message; }
   }, 180);
 }
