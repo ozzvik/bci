@@ -178,19 +178,20 @@ async function seyAround(t) {
   const key = Object.keys(S.sey).map(Number).filter((d) => d >= days).sort((a, b) => a - b)[0];
   if (key) return S.sey[key];
   const j = await api('action=seymour&days=' + days).catch(() => ({ sensors: [] })), by = {};
-  (j.sensors || []).forEach((x) => (x.points || []).forEach((p) => { const b = by[p.at] || (by[p.at] = { t: Date.parse(p.at), n: 0, temp: 0, rh: 0, np: 0, ppfd: 0 }); if (p.t != null && p.h != null) { b.n++; b.temp += p.t; b.rh += p.h; } if (p.ppfd != null) { b.np++; b.ppfd += p.ppfd; } }));
+  (j.sensors || []).forEach((x) => (x.points || []).forEach((p) => { const b = by[p.at] || (by[p.at] = { t: Date.parse(p.at), n: 0, temp: 0, rh: 0, np: 0, ppfd: 0 }); if (p.t != null && p.h != null) { b.n++; b.temp += p.t; b.rh += p.h; } if (p.ppfd != null) { b.np++; b.ppfd += p.ppfd; } if (p.vpdLeaf != null) { b.vl = p.vpdLeaf; b.leaf = p.leaf; } }));
   const pts = Object.values(by).sort((a, b) => a.t - b.t);
   return (S.sey[days] = {
     air: pts.filter((b) => b.n).map((b) => ({ t: b.t, temp: b.temp / b.n, rh: b.rh / b.n, vpd: vpdOf(b.temp / b.n, b.rh / b.n) })),
     ppfd: pts.filter((b) => b.np).map((b) => ({ t: b.t, v: b.ppfd / b.np })),
+    leaf: pts.filter((b) => b.vl != null).map((b) => ({ t: b.t, v: b.vl, leaf: b.leaf })),
     hasLight: (j.sensors || []).some((x) => x.ppfdKey), on: (j.sensors || []).length > 0,
   });
 }
 /** everything known about the room at time t: stage, air (the M5 sensor, else Seymour), PPFD (Seymour) */
 function envAt(g, sy, t) {
   const a = nearest(g.P.air, t, 30 * 60000) || (sy ? nearest(sy.air, t, 45 * 60000) : null);
-  const p = sy ? nearest(sy.ppfd, t, 45 * 60000) : null;
-  return { a, ppfd: p ? p.v : null, po: phaseOf(g.cycle, t) };
+  const p = sy ? nearest(sy.ppfd, t, 45 * 60000) : null, l = sy ? nearest(sy.leaf, t, 45 * 60000) : null;
+  return { a, ppfd: p ? p.v : null, vl: l ? l.v : null, leaf: l ? l.leaf : null, po: phaseOf(g.cycle, t) };
 }
 async function readingsAt(t) {
   $('aTiles').innerHTML = [tile('VPD', '…', 'kPa', ''), tile('טמפ׳ · לחות', '…', '', ''), tile('PPFD', '…', 'µmol', ''), tile('משקל', '…', 'g', ''), tile('ייבוש', '…', '%', '')].join('');
@@ -201,6 +202,7 @@ async function readingsAt(t) {
     $('aTiles').innerHTML = [
       tile('VPD', a ? fmt(a.vpd, 2) : '—', 'kPa', a ? 'נמדד ' + hm(a.t) : 'אין מדידה סמוך לתמונה', a ? vpdState(a.vpd) : ''),
       tile('טמפ׳ · לחות', a ? fmt(a.temp, 1) + '°' : '—', a ? fmt(a.rh) + '%' : '', E.po ? phaseText(E.po) : ''),
+      tile('VPD עלה', E.vl != null ? fmt(E.vl, 2) : '—', 'kPa', E.vl != null ? 'עלה ' + fmt(E.leaf, 1) + '° · Seymour' : 'אין מדידה סמוך לתמונה', E.vl != null && E.po ? band(E.vl, E.po.ph.vpd, .15) || 'good' : ''),
       tile('PPFD', E.ppfd != null ? fmt(E.ppfd) : '—', 'µmol', E.ppfd != null ? 'Seymour' : sy.hasLight ? 'אין מדידה סמוך לתמונה' : 'לא נמצא חיישן אור ב-Seymour'),
       tile('משקל', w ? fmt(w.w) : '—', 'g', w && w.full ? 'מלא ' + fmt(w.full) + ' g' : ''),
       tile('ייבוש', w && w.db != null ? fmt(w.db, 1) : '—', '%', lastIrr ? 'השקיה אחרונה ' + dm(lastIrr.t) + ' ' + hm(lastIrr.t) : 'סף ' + lim + '%', dbc),
@@ -304,6 +306,7 @@ function drawTl() {
       ['°C', a ? fmt(a.temp, 1) : '—', a && ph ? band(a.temp, ph.temp, 1.5) : ''],
       ['RH', a ? fmt(a.rh) + '%' : '—', a && ph ? band(a.rh, ph.rh, 5) : ''],
       ['VPD', a ? fmt(a.vpd, 2) : '—', a && ph ? band(a.vpd, ph.vpd, .15) : ''],
+      ['VPD leaf', E.vl != null ? fmt(E.vl, 2) : '—', E.vl != null && ph ? band(E.vl, ph.vpd, .15) : 'off'],
       ['PPFD', E.ppfd != null ? fmt(E.ppfd) : '—', 'n'],
     ];
     const f2 = Math.round(fs * .92); x.direction = 'ltr'; x.textAlign = 'left';
