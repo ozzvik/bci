@@ -63,12 +63,47 @@ function analyseWeight(points, cycle) {
 }
 function slopeGH(pts) { if (pts.length < 3) return null; const n = pts.length, mt = pts.reduce((a, p) => a + p.t, 0) / n, mw = pts.reduce((a, p) => a + p.w, 0) / n; let nu = 0, de = 0; pts.forEach((p) => { nu += (p.t - mt) * (p.w - mw); de += (p.t - mt) ** 2; }); return de ? nu / de * 3600000 : null; }
 function quietPts(A, from, to) { return A.pts.filter((p) => p.t >= from && p.t <= to && !A.ev.some((e) => p.t >= e.t - 10 * 60000 && p.t <= e.peakT + 60 * 60000)); }
+/* ---------- the load cell drifts with temperature ----------
+   A big cell (100 kg) under a 2 kg pot moves tens of grams per °C. The drift is learned from the readings themselves:
+   30-minute steps away from irrigation, weight change against temperature change (with a constant for the normal drying).
+   Lights on/off make the fastest temperature changes, and the plants dry faster when it is warm, so the learned value is
+   if anything a little too small (it never over-corrects). Settings: SET.fert.tcomp = 'auto' (default) | 'off' | g/°C. */
+const TC_REF = 24;                                         // the corrected weight = the weight the scale would show at 24 °C
+function tempLearn(rows, cycle) {
+  const A = analyseWeight(rows.map((r) => r.p), cycle), bad = (t) => A.ev.some((e) => t >= e.t - 20 * 60000 && t <= e.peakT + 90 * 60000);
+  const R = rows.filter((r) => isFinite(r.w) && isFinite(r.T) && !bad(r.t)), pr = [];
+  for (let i = 0, j = 0; i < R.length; i++) {
+    while (j < R.length && R[j].t - R[i].t < 25 * 60000) j++;
+    if (j < R.length && R[j].t - R[i].t <= 35 * 60000) { const dw = R[j].w - R[i].w, dT = R[j].T - R[i].T; if (Math.abs(dw) < 150 + 80 * Math.abs(dT)) pr.push([dT, dw]); }
+  }
+  const fit = (P) => { const n = P.length; if (n < 20) return null; const mx = P.reduce((a, q) => a + q[0], 0) / n, my = P.reduce((a, q) => a + q[1], 0) / n; let sxy = 0, sxx = 0; P.forEach((q) => { sxy += (q[0] - mx) * (q[1] - my); sxx += (q[0] - mx) ** 2; }); return sxx > 0 ? { k: sxy / sxx, b: my - sxy / sxx * mx, sxx } : null; };
+  let f = fit(pr); if (!f) return { k: 0, n: pr.length, why: 'מעט מדי נתונים' };
+  const res = pr.map((q) => Math.abs(q[1] - f.b - f.k * q[0])).sort((a, b) => a - b), mad = res[Math.floor(res.length / 2)] || 1;
+  const f2 = fit(pr.filter((q) => Math.abs(q[1] - f.b - f.k * q[0]) <= Math.max(15, 4 * mad))); if (f2) f = f2;
+  const big = pr.filter((q) => Math.abs(q[0]) >= 1).length;               // the temperature must actually change a few times
+  if (big < 4 || f.sxx < 10) return { k: 0, n: pr.length, why: 'הטמפרטורה כמעט לא השתנתה' };
+  const k = Math.max(0, Math.min(150, f.k));
+  return { k: k < 3 ? 0 : Math.round(k * 10) / 10, n: pr.length, why: k < 3 ? 'אין סטייה משמעותית' : '' };
+}
+function tempComp(points, cycle) {
+  const set = (SET.fert && SET.fert.tcomp != null) ? SET.fert.tcomp : 'auto';
+  const rows = points.map((p) => ({ p, t: Date.parse(p.at), w: p.w == null || p.w === '' ? NaN : +p.w, T: p.t == null || p.t === '' ? NaN : +p.t })).filter((r) => isFinite(r.t)).sort((a, b) => a.t - b.t);
+  // a weight row without its own temperature takes the nearest one (up to 30 min away)
+  const withT = rows.filter((r) => isFinite(r.T));
+  let j = 0; rows.forEach((r) => { if (isFinite(r.T) || !withT.length) return; while (j + 1 < withT.length && Math.abs(withT[j + 1].t - r.t) <= Math.abs(withT[j].t - r.t)) j++; if (Math.abs(withT[j].t - r.t) <= 30 * 60000) r.T = withT[j].T; });
+  let L = { k: 0, n: 0, why: 'כבוי' };
+  if (set === 'auto') L = tempLearn(rows, cycle);
+  else if (set !== 'off' && isFinite(+set) && +set > 0) L = { k: +set, n: 0, why: '', manual: true };
+  if (!L.k) return { points, tc: L };
+  return { points: rows.map((r) => isFinite(r.w) && isFinite(r.T) ? Object.assign({}, r.p, { w: Math.round((r.w - L.k * (r.T - TC_REF)) * 10) / 10, wRaw: r.w }) : r.p), tc: L };
+}
 /** everything the screens show about the plant now */
 function plantNow(points, cycle) {
   // only the grow-room scale (the sheet also gets the readings of other scales, e.g. M5-scale2 in propagation)
   const dev = (cycle && cycle.scale) || 'M5-grow';
   points = points.filter((p) => !p.device || p.device === dev);
-  const A = analyseWeight(points, cycle), lim = +(cycle && cycle.limit) || 20, out = { A, lim };
+  const C = tempComp(points, cycle); points = C.points;
+  const A = analyseWeight(points, cycle), lim = +(cycle && cycle.limit) || 20, out = { A, lim, tc: C.tc };
   const n = A.pts[A.pts.length - 1];
   if (n) {
     out.w = n.w; out.t = n.t; out.full = n.full; out.db = n.db;
@@ -253,6 +288,36 @@ function liveRefresh(ok, load) {
   const run = () => { if (document.hidden || busyLooking() || !ok()) return; last = Date.now(); load(); };
   setInterval(run, LIVE_MS);
   document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - last > 30000) run(); });
+}
+/* ---------- leaf VPD from Seymour ("אינדור 1": leaf temperature + the air at the same sensor), 30-minute averages ----------
+   VPD at the leaf = saturation pressure at the LEAF temperature minus the vapour pressure of the air. The leaf is usually
+   cooler than the air under the lights, so the leaf VPD is lower than the air VPD - it is what the plant really feels. */
+const COL_LEAF = '#7bd88f';
+let LEAF = store.get('leaf') || null;                      // { pts: [{t, v, leaf, co2}], last }
+const LV = { p: null, at: 0, days: 0 };
+function leafData(days) {
+  days = Math.max(2, Math.min(30, Math.ceil(days || 2)));
+  if (!LV.p || Date.now() - LV.at > 10 * 60000 || days > LV.days) {
+    LV.at = Date.now(); LV.days = days;
+    LV.p = api('action=seymour&days=' + days).then((j) => {
+      const pts = [];
+      (j.sensors || []).forEach((x) => (x.points || []).forEach((q) => { if (q.vpdLeaf != null) pts.push({ t: Date.parse(q.at), v: q.vpdLeaf, leaf: q.leaf, co2: q.co2 }); }));
+      pts.sort((a, b) => a.t - b.t);
+      const L = { pts, last: pts[pts.length - 1] || null };
+      try { store.set('leaf', { pts: pts.filter((p) => p.t > Date.now() - 2 * DAY), last: L.last }); } catch (e) {}
+      return L;
+    }).catch((e) => { LV.p = null; throw e; });
+  }
+  return LV.p;
+}
+/** loads the leaf VPD (cached 10 min) and calls redraw once when something new came */
+function leafLoad(days, redraw) {
+  leafData(days).then((L) => { const was = LEAF && LEAF.last ? LEAF.last.t + ':' + LEAF.pts.length : '', now = L.last ? L.last.t + ':' + L.pts.length : ''; LEAF = L; if (was !== now && redraw) redraw(); }).catch(() => {});
+}
+function leafTile(ph, t0) {
+  const L = LEAF, a = L && L.last, fresh = a && Date.now() - a.t < 90 * 60000, pts = L ? L.pts.filter((p) => p.t >= t0) : [];
+  return ktile('VPD עלה', COL_LEAF, fresh ? fmt(a.v, 2) : '—', 'kPa', ph ? ph.vpd[0] + '–' + ph.vpd[1] : '', pts.map((p) => p.v), fresh && ph ? band(a.v, ph.vpd, .15) : fresh ? '' : 'off',
+    a ? 'עלה ' + fmt(a.leaf, 1) + '°' + (fresh ? '' : ' · ' + ago(a.t)) : 'אין נתון מ-Seymour');
 }
 /* ---------- a grid over the photo (off / 3×3 / 6×6 / 10×10, kept in this phone) ---------- */
 const GRIDS = [0, 3, 6, 10];
